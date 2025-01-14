@@ -228,8 +228,8 @@
                             "description": "Mission"
                         },
                         "524288": {
-                            "name": "avoidance",
-                            "description": "Avoidance"
+                            "name": "empty_used_to_be_avoidance",
+                            "description": "empty - used to be avoidance"
                         },
                         "1048576": {
                             "name": "system",

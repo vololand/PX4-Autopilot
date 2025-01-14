@@ -39,9 +39,6 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/Publication.hpp>
 
-static_assert((1ull << arming_check_reply_s::HEALTH_COMPONENT_INDEX_AVOIDANCE) == (uint64_t)
-	      health_component_t::avoidance, "enum definition missmatch");
-
 class ExternalChecks : public HealthAndArmingCheckBase
 {
 public:
