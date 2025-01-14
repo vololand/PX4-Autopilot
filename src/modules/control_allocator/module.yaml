@@ -31,6 +31,7 @@ parameters:
                 11: Helicopter (tail Servo)
                 12: Helicopter (Coaxial)
                 13: Rover (Mecanum)
+                14: Boat
             default: 0
 
         CA_METHOD:
@@ -1155,3 +1156,14 @@ mixer:
                         position: [ -1, 1, 0 ]
                       - name: 'Left Motor Back'
                         position: [ -1, -1, 0 ]
+            14: # Boat(one motor, one rudder)
+                title: 'Boat (one motor, one rudder)'
+                actuators:
+                  - actuator_type: 'motor'
+                    instances:
+                      - name: 'Throttle'
+                        position: [ -1., 0, 0 ]
+                  - actuator_type: 'servo'
+                    instances:
+                      - name: 'Steering'
+                        position: [ -1., 0, 0 ]
