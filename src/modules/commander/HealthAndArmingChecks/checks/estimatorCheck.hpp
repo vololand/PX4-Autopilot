@@ -96,6 +96,7 @@ private:
 	uORB::Subscription _vehicle_gps_position_sub{ORB_ID(vehicle_gps_position)};
 
 	hrt_abstime	_last_gpos_fail_time_us{0};	///< Last time that the global position validity recovery check failed (usec)
+	hrt_abstime	_last_gpos_relaxed_fail_time_us{0};	///< Last time that the global position relaxed validity recovery check failed (usec)
 	hrt_abstime	_last_lpos_fail_time_us{0};	///< Last time that the local position validity recovery check failed (usec)
 	hrt_abstime	_last_lpos_relaxed_fail_time_us{0};	///< Last time that the relaxed local position validity recovery check failed (usec)
 	hrt_abstime	_last_lvel_fail_time_us{0};	///< Last time that the local velocity validity recovery check failed (usec)
@@ -117,6 +118,7 @@ private:
 					(ParamInt<px4::params::COM_ARM_WO_GPS>) _param_com_arm_wo_gps,
 					(ParamBool<px4::params::SYS_HAS_GPS>) _param_sys_has_gps,
 					(ParamFloat<px4::params::COM_POS_FS_EPH>) _param_com_pos_fs_eph,
+					(ParamFloat<px4::params::COM_POS_R_FS_EPH>) _param_com_pos_relaxed_fs_eph,
 					(ParamFloat<px4::params::COM_VEL_FS_EVH>) _param_com_vel_fs_evh,
 					(ParamFloat<px4::params::COM_POS_LOW_EPH>) _param_com_low_eph,
 					(ParamInt<px4::params::COM_POS_LOW_ACT>) _param_com_pos_low_act

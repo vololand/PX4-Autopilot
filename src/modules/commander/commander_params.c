@@ -513,12 +513,26 @@ PARAM_DEFINE_INT32(COM_ARM_AUTH_MET, 0);
 PARAM_DEFINE_FLOAT(COM_ARM_AUTH_TO, 1);
 
 /**
- * Horizontal position error threshold.
+ * Multicopter Horizontal position error threshold
  *
- * This is the horizontal position error (EPH) threshold that will trigger a failsafe.
- * The default is appropriate for a multicopter. Can be increased for a fixed-wing.
- * If the previous position error was below this threshold, there is an additional
- * factor of 2.5 applied (threshold for invalidation 2.5 times the one for validation).
+ * Horizontal position error (EPH) threshold for multicopter modes which rely on local / global position.
+ * If mode is active, threshold is relaxed by factor 2.5.
+ *
+ * Set -1 to disable.
+ *
+ * @unit m
+ * @min -1
+ * @max 400
+ * @decimal 1
+ * @group Commander
+ */
+PARAM_DEFINE_FLOAT(COM_POS_FS_EPH, 5.f);
+
+/**
+ * Fixed-wing Horizontal position error threshold.
+ *
+ * Relaxed Horizontal position error (EPH) threshold for fixed-wing modes which rely on local / global position.
+ * If mode is active, threshold is relaxed by factor 2.5.
  *
  * Set to -1 to disable.
  *
@@ -528,7 +542,7 @@ PARAM_DEFINE_FLOAT(COM_ARM_AUTH_TO, 1);
  * @decimal 1
  * @group Commander
  */
-PARAM_DEFINE_FLOAT(COM_POS_FS_EPH, 5.f);
+PARAM_DEFINE_FLOAT(COM_POS_R_FS_EPH, 50.f);
 
 /**
  * Horizontal velocity error threshold.
