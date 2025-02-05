@@ -50,6 +50,7 @@
 #include <uORB/topics/rover_throttle_setpoint.h>
 #include <uORB/topics/rover_position_status.h>
 #include <uORB/topics/rover_attitude_setpoint.h>
+#include <uORB/topics/rover_steering_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/trajectory_setpoint.h>
@@ -164,8 +165,10 @@ private:
 	uORB::Subscription _local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _mission_result_sub{ORB_ID(mission_result)};
 	uORB::Subscription _home_position_sub{ORB_ID(home_position)};
+	uORB::Subscription _rover_steering_setpoint_sub{ORB_ID(rover_steering_setpoint)};
 	vehicle_control_mode_s _vehicle_control_mode{};
 	offboard_control_mode_s _offboard_control_mode{};
+	rover_steering_setpoint_s _rover_steering_setpoint{};
 
 	// uORB publications
 	uORB::Publication<rover_rate_setpoint_s> _rover_rate_setpoint_pub{ORB_ID(rover_rate_setpoint)};

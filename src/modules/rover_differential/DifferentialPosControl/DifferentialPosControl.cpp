@@ -68,6 +68,24 @@ void DifferentialPosControl::updatePosControl()
 	if ((_vehicle_control_mode.flag_control_position_enabled || _vehicle_control_mode.flag_control_velocity_enabled)
 	    && _vehicle_control_mode.flag_armed) {
 		generateAttitudeSetpoint();
+
+		if (_param_ro_max_thr_speed.get() > FLT_EPSILON) {
+
+			float forward_speed_normalized = math::interpolate<float>(_forward_speed_setpoint,
+							 -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get(), -1.f, 1.f);
+
+			if (_rover_steering_setpoint_sub.updated()) {
+				_rover_steering_setpoint_sub.copy(&_rover_steering_setpoint);
+			}
+
+			if (fabsf(forward_speed_normalized) > 1.f -
+			    fabsf(_rover_steering_setpoint.normalized_speed_diff)) { // Adjust forward speed setpoint if it is infeasible due to the desired speed difference of the left/right wheels
+				_forward_speed_setpoint = sign(_forward_speed_setpoint) *
+							  math::interpolate<float>(1.f - fabsf(_rover_steering_setpoint.normalized_speed_diff), -1.f, 1.f,
+									  -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get());
+			}
+		}
+
 		rover_throttle_setpoint_s rover_throttle_setpoint{};
 		rover_throttle_setpoint.timestamp = _timestamp;
 		rover_throttle_setpoint.throttle_body_x = RoverControl::speedToThrottleSetpoint(_speed_setpoint, _pid_speed,
