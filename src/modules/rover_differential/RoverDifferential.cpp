@@ -69,7 +69,7 @@ void RoverDifferential::Run()
 	_timestamp = hrt_absolute_time();
 	_dt = math::constrain(_timestamp - timestamp_prev, 1_ms, 5000_ms) * 1e-6f;
 
-	// _differential_pos_control.updatePosControl();
+	_differential_pos_control.updatePosControl();
 	_differential_att_control.updateAttControl();
 	_differential_rate_control.updateRateControl();
 

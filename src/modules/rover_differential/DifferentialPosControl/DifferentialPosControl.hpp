@@ -65,17 +65,26 @@
 using namespace matrix;
 
 /**
- * @brief Class for ackermann position control.
+ * @brief Enum class for the different states of guidance.
  */
-class AckermannPosControl : public ModuleParams
+enum class GuidanceState {
+	SPOT_TURNING, // The vehicle is currently turning on the spot.
+	DRIVING,      // The vehicle is currently driving.
+	STOPPED  // The vehicle is stopped.
+};
+
+/**
+ * @brief Class for differential position control.
+ */
+class DifferentialPosControl : public ModuleParams
 {
 public:
 	/**
-	 * @brief Constructor for AckermannPosControl.
+	 * @brief Constructor for DifferentialPosControl.
 	 * @param parent The parent ModuleParams object.
 	 */
-	AckermannPosControl(ModuleParams *parent);
-	~AckermannPosControl() = default;
+	DifferentialPosControl(ModuleParams *parent);
+	~DifferentialPosControl() = default;
 
 	/**
 	 * @brief Update position controller.
@@ -127,45 +136,21 @@ private:
 	void updateAutoSubscriptions();
 
 	/**
-	 * @brief Update global/NED waypoint coordinates and acceptance radius.
-	 */
-	void updateWaypointsAndAcceptanceRadius();
-
-	/**
-	 * @brief Publish the acceptance radius for current waypoint based on the angle between a line segment
-	 * from the previous to the current waypoint/current to the next waypoint and maximum steer angle of the vehicle.
-	 * @param waypoint_transition_angle Angle between the prevWP-currWP and currWP-nextWP line segments [rad]
-	 * @param default_acceptance_radius Default acceptance radius for waypoints [m].
-	 * @param acceptance_radius_gain Tuning parameter that scales the geometric optimal acceptance radius for the corner cutting [-].
-	 * @param acceptance_radius_max Maximum value for the acceptance radius [m].
-	 * @param wheel_base Rover wheelbase [m].
-	 * @param max_steer_angle Rover maximum steer angle [rad].
-	 * @return Updated acceptance radius [m].
-	 */
-	float updateAcceptanceRadius(float waypoint_transition_angle, float default_acceptance_radius,
-				     float acceptance_radius_gain, float acceptance_radius_max, float wheel_base, float max_steer_angle);
-
-	/**
 	 * @brief Calculate the speed setpoint. During cornering the speed is restricted based on the radius of the corner.
 	 * On straight lines it is based on a speed trajectory such that the rover will arrive at the next corner with the
 	 * desired cornering speed under consideration of the maximum deceleration and jerk.
 	 * @param cruising_speed Cruising speed [m/s].
-	 * @param miss_speed_min Minimum speed setpoint [m/s].
-	 * @param distance_to_prev_wp Distance to the previous waypoint [m].
 	 * @param distance_to_curr_wp Distance to the current waypoint [m].
-	 * @param acc_rad Acceptance radius of the current waypoint [m].
-	 * @param prev_acc_rad Acceptance radius of the previous waypoint [m].
 	 * @param max_decel Maximum allowed deceleration [m/s^2].
 	 * @param max_jerk Maximum allowed jerk [m/s^3].
-	 * @param nav_state Current nav_state of the rover.
 	 * @param waypoint_transition_angle Angle between the prevWP-currWP and currWP-nextWP line segments [rad]
-	 * @param prev_waypoint_transition_angle Previous angle between the prevWP-currWP and currWP-nextWP line segments [rad]
 	 * @param max_speed Maximum speed setpoint [m/s]
+	 * @param trans_drv_trn Heading error threshold to switch from driving to turning [rad].
+	 * @param midd_spd_gain Tuning parameter for the speed reduction during waypoint transition.
 	 * @return Speed setpoint [m/s].
 	 */
-	float calcSpeedSetpoint(float cruising_speed, float miss_speed_min, float distance_to_prev_wp,
-				float distance_to_curr_wp, float acc_rad, float prev_acc_rad, float max_decel, float max_jerk, int nav_state,
-				float waypoint_transition_angle, float prev_waypoint_transition_angle, float max_speed);
+	float calcSpeedSetpoint(float cruising_speed, float distance_to_curr_wp, float max_decel, float max_jerk,
+				float waypoint_transition_angle, float max_speed, float trans_drv_trn, float miss_spd_gain);
 
 	// uORB subscriptions
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
@@ -200,7 +185,6 @@ private:
 	float _vehicle_yaw{0.f};
 	float _max_yaw_rate{0.f};
 	float _forward_speed_setpoint{0.f};
-	float _min_speed{0.f};
 	float _dt{0.f};
 	int _nav_state{0};
 	bool _course_control{false}; // Indicates if the rover is doing course control in manual position mode.
@@ -215,7 +199,6 @@ private:
 	float _prev_acceptance_radius{0.5f};
 	float _cruising_speed{0.f};
 	float _waypoint_transition_angle{0.f}; // Angle between the prevWP-currWP and currWP-nextWP line segments [rad]
-	float _prev_waypoint_transition_angle{0.f}; // Previous Angle between the prevWP-currWP and currWP-nextWP line segments [rad]
 
 	// Controllers
 	PID _pid_speed;
@@ -224,8 +207,12 @@ private:
 	// Class Instances
 	PurePursuit _posctl_pure_pursuit{this}; // Pure pursuit library
 	MapProjection _global_ned_proj_ref{}; // Transform global to NED coordinates
+	GuidanceState _currentState{GuidanceState::DRIVING}; // The current state of the guidance.
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::RD_TRANS_TRN_DRV>) _param_rd_trans_trn_drv,
+		(ParamFloat<px4::params::RD_TRANS_DRV_TRN>) _param_rd_trans_drv_trn,
+		(ParamFloat<px4::params::RD_MISS_SPD_GAIN>) _param_rd_miss_spd_gain,
 		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed,
 		(ParamFloat<px4::params::RO_SPEED_P>) 	    _param_ro_speed_p,
 		(ParamFloat<px4::params::RO_SPEED_I>)       _param_ro_speed_i,
@@ -237,10 +224,6 @@ private:
 		(ParamFloat<px4::params::RO_SPEED_TH>)      _param_ro_speed_th,
 		(ParamFloat<px4::params::PP_LOOKAHD_MAX>)   _param_pp_lookahd_max,
 		(ParamFloat<px4::params::RO_MAX_YAW_RATE>)  _param_ro_max_yaw_rate,
-		(ParamFloat<px4::params::RA_ACC_RAD_MAX>)   _param_ra_acc_rad_max,
-		(ParamFloat<px4::params::RA_ACC_RAD_GAIN>)  _param_ra_acc_rad_gain,
-		(ParamFloat<px4::params::RA_MAX_STR_ANG>)   _param_ra_max_str_ang,
-		(ParamFloat<px4::params::RA_WHEEL_BASE>)    _param_ra_wheel_base,
 		(ParamFloat<px4::params::NAV_ACC_RAD>)      _param_nav_acc_rad
 
 	)

@@ -31,11 +31,11 @@
  *
  ****************************************************************************/
 
-#include "AckermannPosControl.hpp"
+#include "DifferentialPosControl.hpp"
 
 using namespace time_literals;
 
-AckermannPosControl::AckermannPosControl(ModuleParams *parent) : ModuleParams(parent)
+DifferentialPosControl::DifferentialPosControl(ModuleParams *parent) : ModuleParams(parent)
 {
 	_rover_rate_setpoint_pub.advertise();
 	_rover_throttle_setpoint_pub.advertise();
@@ -44,7 +44,7 @@ AckermannPosControl::AckermannPosControl(ModuleParams *parent) : ModuleParams(pa
 	updateParams();
 }
 
-void AckermannPosControl::updateParams()
+void DifferentialPosControl::updateParams()
 {
 	ModuleParams::updateParams();
 	_pid_speed.setGains(_param_ro_speed_p.get(), _param_ro_speed_i.get(), 0.f);
@@ -55,14 +55,9 @@ void AckermannPosControl::updateParams()
 	if (_param_ro_max_accel.get() > FLT_EPSILON) {
 		_speed_setpoint.setSlewRate(_param_ro_max_accel.get());
 	}
-
-	if (_param_ra_wheel_base.get() > FLT_EPSILON && _max_yaw_rate > FLT_EPSILON
-	    && _param_ra_max_str_ang.get() > FLT_EPSILON) {
-		_min_speed = _param_ra_wheel_base.get() * _max_yaw_rate / tanf(_param_ra_max_str_ang.get());
-	}
 }
 
-void AckermannPosControl::updatePosControl()
+void DifferentialPosControl::updatePosControl()
 {
 	hrt_abstime timestamp_prev = _timestamp;
 	_timestamp = hrt_absolute_time();
@@ -100,7 +95,7 @@ void AckermannPosControl::updatePosControl()
 	_rover_position_status_pub.publish(rover_position_status);
 }
 
-void AckermannPosControl::updateSubscriptions()
+void DifferentialPosControl::updateSubscriptions()
 {
 	if (_vehicle_control_mode_sub.updated()) {
 		_vehicle_control_mode_sub.copy(&_vehicle_control_mode);
@@ -138,7 +133,7 @@ void AckermannPosControl::updateSubscriptions()
 
 }
 
-void AckermannPosControl::generateAttitudeSetpoint()
+void DifferentialPosControl::generateAttitudeSetpoint()
 {
 	if (_vehicle_control_mode.flag_control_manual_enabled
 	    && _vehicle_control_mode.flag_control_position_enabled) { // Position Mode
@@ -161,7 +156,7 @@ void AckermannPosControl::generateAttitudeSetpoint()
 	}
 }
 
-void AckermannPosControl::manualPositionMode()
+void DifferentialPosControl::manualPositionMode()
 {
 	manual_control_setpoint_s manual_control_setpoint{};
 	bool necessary_parameters_set = _max_yaw_rate > FLT_EPSILON &&  _param_ro_max_thr_speed.get() > FLT_EPSILON;
@@ -177,7 +172,7 @@ void AckermannPosControl::manualPositionMode()
 			_course_control = false;
 			rover_rate_setpoint_s rover_rate_setpoint{};
 			rover_rate_setpoint.timestamp = _timestamp;
-			rover_rate_setpoint.yaw_rate_setpoint = matrix::sign(_vehicle_forward_speed) * yaw_rate_setpoint;
+			rover_rate_setpoint.yaw_rate_setpoint = yaw_rate_setpoint;
 			_rover_rate_setpoint_pub.publish(rover_rate_setpoint);
 
 		} else { // Course control if the steering input is zero (keep driving on a straight line)
@@ -203,7 +198,7 @@ void AckermannPosControl::manualPositionMode()
 	}
 }
 
-void AckermannPosControl::offboardPositionMode()
+void DifferentialPosControl::offboardPositionMode()
 {
 	trajectory_setpoint_s trajectory_setpoint{};
 	_trajectory_setpoint_sub.copy(&trajectory_setpoint);
@@ -227,7 +222,7 @@ void AckermannPosControl::offboardPositionMode()
 	}
 }
 
-void AckermannPosControl::offboardVelocityMode()
+void DifferentialPosControl::offboardVelocityMode()
 {
 	trajectory_setpoint_s trajectory_setpoint{};
 	_trajectory_setpoint_sub.copy(&trajectory_setpoint);
@@ -243,13 +238,11 @@ void AckermannPosControl::offboardVelocityMode()
 	}
 }
 
-void AckermannPosControl::autoPositionMode()
+void DifferentialPosControl::autoPositionMode()
 {
 	updateAutoSubscriptions();
 
 	// Distances to waypoints
-	const float distance_to_prev_wp = sqrt(powf(_curr_pos_ned(0) - _prev_wp_ned(0),
-					       2) + powf(_curr_pos_ned(1) - _prev_wp_ned(1), 2));
 	const float distance_to_curr_wp = sqrt(powf(_curr_pos_ned(0) - _curr_wp_ned(0),
 					       2) + powf(_curr_pos_ned(1) - _curr_wp_ned(1), 2));
 
@@ -257,23 +250,61 @@ void AckermannPosControl::autoPositionMode()
 		_mission_finished = distance_to_curr_wp < _param_nav_acc_rad.get();
 	}
 
-	if (_mission_finished) {
-		_forward_speed_setpoint = 0.f;
+	// State machine
+	float yaw_setpoint = _posctl_pure_pursuit.calcDesiredHeading(_curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
+			     fabsf(_vehicle_forward_speed));
+	const float heading_error = matrix::wrap_pi(yaw_setpoint - _vehicle_yaw);
 
-	} else { // Regular guidance algorithm
+	if (!_mission_finished && distance_to_curr_wp > _param_nav_acc_rad.get()) {
+		if (_currentState == GuidanceState::STOPPED) {
+			_currentState = GuidanceState::DRIVING;
+		}
 
-		_forward_speed_setpoint = calcSpeedSetpoint(_cruising_speed, _min_speed, distance_to_prev_wp, distance_to_curr_wp,
-					  _acceptance_radius, _prev_acceptance_radius, _param_ro_max_decel.get(), _param_ro_max_jerk.get(), _nav_state,
-					  _waypoint_transition_angle, _prev_waypoint_transition_angle, _param_ro_max_speed.get());
-		rover_attitude_setpoint_s rover_attitude_setpoint{};
-		rover_attitude_setpoint.timestamp = _timestamp;
-		rover_attitude_setpoint.yaw_setpoint = _posctl_pure_pursuit.calcDesiredHeading(_curr_wp_ned, _prev_wp_ned,
-						       _curr_pos_ned, fabsf(_forward_speed_setpoint));
-		_rover_attitude_setpoint_pub.publish(rover_attitude_setpoint);
+		if (_currentState == GuidanceState::DRIVING && fabsf(heading_error) > _param_rd_trans_drv_trn.get()) {
+			_currentState = GuidanceState::SPOT_TURNING;
+
+		} else if (_currentState == GuidanceState::SPOT_TURNING && fabsf(heading_error) < _param_rd_trans_trn_drv.get()) {
+			_currentState = GuidanceState::DRIVING;
+		}
+
+	} else { // Mission finished or delay command
+		_currentState = GuidanceState::STOPPED;
 	}
+
+	// Guidance logic
+	switch (_currentState) {
+	case GuidanceState::DRIVING: {
+			// Calculate desired forward speed
+			_forward_speed_setpoint = calcSpeedSetpoint(_cruising_speed, distance_to_curr_wp, _param_ro_max_decel.get(),
+						  _param_ro_max_jerk.get(), _waypoint_transition_angle, _param_ro_max_speed.get(), _param_rd_trans_drv_trn.get(),
+						  _param_rd_miss_spd_gain.get());
+
+		} break;
+
+	case GuidanceState::SPOT_TURNING:
+		if (fabsf(_vehicle_forward_speed) > 0.f) {
+			yaw_setpoint = _vehicle_yaw; // Wait for the rover to stop
+
+		}
+
+		_forward_speed_setpoint = 0.f;
+		break;
+
+	case GuidanceState::STOPPED:
+	default:
+		yaw_setpoint = _vehicle_yaw;
+		_forward_speed_setpoint = 0.f;
+		break;
+
+	}
+
+	rover_attitude_setpoint_s rover_attitude_setpoint{};
+	rover_attitude_setpoint.timestamp = _timestamp;
+	rover_attitude_setpoint.yaw_setpoint = yaw_setpoint;
+	_rover_attitude_setpoint_pub.publish(rover_attitude_setpoint);
 }
 
-void AckermannPosControl::updateAutoSubscriptions()
+void DifferentialPosControl::updateAutoSubscriptions()
 {
 	if (_home_position_sub.updated()) {
 		home_position_s home_position{};
@@ -282,7 +313,17 @@ void AckermannPosControl::updateAutoSubscriptions()
 	}
 
 	if (_position_setpoint_triplet_sub.updated()) {
-		updateWaypointsAndAcceptanceRadius();
+		position_setpoint_triplet_s position_setpoint_triplet{};
+		_position_setpoint_triplet_sub.copy(&position_setpoint_triplet);
+
+		RoverControl::globalToLocalSetpointTriplet(_curr_wp_ned, _prev_wp_ned, _next_wp_ned, position_setpoint_triplet,
+				_curr_pos_ned, _home_position, _global_ned_proj_ref);
+
+		_waypoint_transition_angle = RoverControl::calcWaypointTransitionAngle(_prev_wp_ned, _curr_wp_ned, _next_wp_ned);
+
+		// Waypoint cruising speed
+		_cruising_speed = position_setpoint_triplet.current.cruising_speed > 0.f ? math::constrain(
+					  position_setpoint_triplet.current.cruising_speed, 0.f, _param_ro_max_speed.get()) : _param_ro_max_speed.get();
 	}
 
 	if (_mission_result_sub.updated()) {
@@ -292,99 +333,26 @@ void AckermannPosControl::updateAutoSubscriptions()
 	}
 }
 
-void AckermannPosControl::updateWaypointsAndAcceptanceRadius()
+float DifferentialPosControl::calcSpeedSetpoint(const float cruising_speed, const float distance_to_curr_wp,
+		const float max_decel, const float max_jerk, const float waypoint_transition_angle, const float max_speed,
+		const float trans_drv_trn, const float miss_spd_gain)
 {
-	position_setpoint_triplet_s position_setpoint_triplet{};
-	_position_setpoint_triplet_sub.copy(&position_setpoint_triplet);
+	float forward_speed_setpoint = cruising_speed;
 
-	RoverControl::globalToLocalSetpointTriplet(_curr_wp_ned, _prev_wp_ned, _next_wp_ned, position_setpoint_triplet,
-			_curr_pos_ned,
-			_home_position, _global_ned_proj_ref);
-
-	_prev_waypoint_transition_angle = _waypoint_transition_angle;
-	_waypoint_transition_angle = RoverControl::calcWaypointTransitionAngle(_prev_wp_ned, _curr_wp_ned, _next_wp_ned);
-
-	// Update acceptance radius
-	_prev_acceptance_radius = _acceptance_radius;
-
-	if (_param_ra_acc_rad_max.get() >= _param_nav_acc_rad.get()) {
-		_acceptance_radius = updateAcceptanceRadius(_waypoint_transition_angle, _param_nav_acc_rad.get(),
-				     _param_ra_acc_rad_gain.get(), _param_ra_acc_rad_max.get(), _param_ra_wheel_base.get(), _param_ra_max_str_ang.get());
-
-	} else {
-		_acceptance_radius = _param_nav_acc_rad.get();
-	}
-
-	// Waypoint cruising speed
-	_cruising_speed = position_setpoint_triplet.current.cruising_speed > 0.f ? math::constrain(
-				  position_setpoint_triplet.current.cruising_speed, 0.f, _param_ro_max_speed.get()) : _param_ro_max_speed.get();
-}
-
-float AckermannPosControl::updateAcceptanceRadius(const float waypoint_transition_angle,
-		const float default_acceptance_radius, const float acceptance_radius_gain,
-		const float acceptance_radius_max, const float wheel_base, const float max_steer_angle)
-{
-	// Calculate acceptance radius s.t. the rover cuts the corner tangential to the current and next line segment
-	float acceptance_radius = default_acceptance_radius;
-	const float theta = waypoint_transition_angle / 2.f;
-	const float min_turning_radius = wheel_base / sinf(max_steer_angle);
-	const float acceptance_radius_temp = min_turning_radius / tanf(theta);
-	const float acceptance_radius_temp_scaled = acceptance_radius_gain *
-			acceptance_radius_temp; // Scale geometric ideal acceptance radius to account for kinematic and dynamic effects
-	acceptance_radius = math::constrain<float>(acceptance_radius_temp_scaled, default_acceptance_radius,
-			    acceptance_radius_max);
-
-	// Publish updated acceptance radius
-	position_controller_status_s pos_ctrl_status{};
-	pos_ctrl_status.acceptance_radius = acceptance_radius;
-	pos_ctrl_status.timestamp = hrt_absolute_time();
-	_position_controller_status_pub.publish(pos_ctrl_status);
-	return acceptance_radius;
-}
-
-float AckermannPosControl::calcSpeedSetpoint(const float cruising_speed, const float miss_speed_min,
-		const float distance_to_prev_wp, const float distance_to_curr_wp, const float acc_rad,
-		const float prev_acc_rad, const float max_decel, const float max_jerk, const int nav_state,
-		const float waypoint_transition_angle, const float prev_waypoint_transition_angle, const float max_speed)
-{
-	// Catch improper values
-	if (miss_speed_min < -FLT_EPSILON  || miss_speed_min > cruising_speed) {
-		return cruising_speed;
-	}
-
-	// Cornering slow down effect
-	if (distance_to_prev_wp <= prev_acc_rad && prev_acc_rad > FLT_EPSILON) {
-		const float turning_circle = prev_acc_rad * tanf(prev_waypoint_transition_angle / 2.f);
-		const float cornering_speed = _max_yaw_rate * turning_circle;
-		return math::constrain(cornering_speed, miss_speed_min, cruising_speed);
-
-	} else if (distance_to_curr_wp <= acc_rad && acc_rad > FLT_EPSILON) {
-		const float turning_circle = acc_rad * tanf(waypoint_transition_angle / 2.f);
-		const float cornering_speed = _max_yaw_rate * turning_circle;
-		return math::constrain(cornering_speed, miss_speed_min, cruising_speed);
-
-	}
-
-	// Straight line speed
-	if (max_decel > FLT_EPSILON && max_jerk > FLT_EPSILON && acc_rad > FLT_EPSILON) {
-		float straight_line_speed{0.f};
-
-		if (nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL) {
-			straight_line_speed = math::trajectory::computeMaxSpeedFromDistance(max_jerk,
-					      max_decel, distance_to_curr_wp, 0.f);
-
-		} else {
-			const float turning_circle = acc_rad * tanf(waypoint_transition_angle / 2.f);
-			float cornering_speed = _max_yaw_rate * turning_circle;
-			cornering_speed = math::constrain(cornering_speed, miss_speed_min, cruising_speed);
-			straight_line_speed = math::trajectory::computeMaxSpeedFromDistance(max_jerk,
-					      max_decel, distance_to_curr_wp - acc_rad, cornering_speed);
+	if (_waypoint_transition_angle < M_PI_F - trans_drv_trn) {
+		if (max_jerk > FLT_EPSILON && max_decel > FLT_EPSILON) {
+			forward_speed_setpoint = math::trajectory::computeMaxSpeedFromDistance(max_jerk, max_decel, distance_to_curr_wp, 0.0f);
+			forward_speed_setpoint = math::constrain(forward_speed_setpoint, -max_speed, max_speed);
 		}
 
-		return math::min(straight_line_speed, cruising_speed);
-
-	} else {
-		return cruising_speed;
+	} else if (max_jerk > FLT_EPSILON && max_decel > FLT_EPSILON && miss_spd_gain > FLT_EPSILON) {
+		const float speed_reduction = math::constrain(miss_spd_gain * math::interpolate(M_PI_F - _waypoint_transition_angle,
+					      0.f, M_PI_F, 0.f, 1.f), 0.f, 1.f);
+		forward_speed_setpoint = math::trajectory::computeMaxSpeedFromDistance(max_jerk, max_decel, distance_to_curr_wp,
+					 max_speed * (1.f - speed_reduction));
+		forward_speed_setpoint = math::constrain(forward_speed_setpoint, -max_speed, max_speed);
 	}
+
+	return forward_speed_setpoint;
 
 }

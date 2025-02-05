@@ -31,9 +31,9 @@
 #
 ############################################################################
 
-px4_add_library(AckermannPosControl
-	AckermannPosControl.cpp
+px4_add_library(DifferentialPosControl
+	DifferentialPosControl.cpp
 )
 
-target_link_libraries(AckermannPosControl PUBLIC PID)
-target_include_directories(AckermannPosControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(DifferentialPosControl PUBLIC PID)
+target_include_directories(DifferentialPosControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

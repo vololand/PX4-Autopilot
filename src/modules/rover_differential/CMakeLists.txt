@@ -33,7 +33,7 @@
 
 add_subdirectory(DifferentialRateControl)
 add_subdirectory(DifferentialAttControl)
-#add_subdirectory(DifferentialPosControl)
+add_subdirectory(DifferentialPosControl)
 
 px4_add_module(
 	MODULE modules__rover_differential
@@ -44,7 +44,7 @@ px4_add_module(
 	DEPENDS
 		DifferentialRateControl
 		DifferentialAttControl
-		#DifferentialPosControl
+		DifferentialPosControl
 		px4_work_queue
 		rover_control
 	MODULE_CONFIG
