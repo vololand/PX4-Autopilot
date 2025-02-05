@@ -54,17 +54,17 @@
 #include <uORB/topics/actuator_motors.h>
 
 /**
- * @brief Class for ackermann attitude control.
+ * @brief Class for differential attitude control.
  */
-class AckermannAttControl : public ModuleParams
+class DifferentialAttControl : public ModuleParams
 {
 public:
 	/**
-	 * @brief Constructor for AckermannAttControl.
+	 * @brief Constructor for DifferentialAttControl.
 	 * @param parent The parent ModuleParams object.
 	 */
-	AckermannAttControl(ModuleParams *parent);
-	~AckermannAttControl() = default;
+	DifferentialAttControl(ModuleParams *parent);
+	~DifferentialAttControl() = default;
 
 	/**
 	 * @brief Update attitude controller.
@@ -111,8 +111,6 @@ private:
 	hrt_abstime _last_rate_setpoint_update{0};
 	float _dt{0.f};
 	float _max_yaw_rate{0.f};
-	float _estimated_forward_speed{0.f}; /*Vehicle speed estimated by interpolating [actuatorMotorSetpoint,  _estimated_forward_speed]
-					       between [0, 0] and [1, _param_ro_max_thr_speed].*/
 	bool _stab_yaw_ctl{false}; // Indicates if rover is doing yaw control in stab mode
 	float _stab_yaw_setpoint{0.f}; // Yaw setpoint if rover is doing yaw control in stab mode
 

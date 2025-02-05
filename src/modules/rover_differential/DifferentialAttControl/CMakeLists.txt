@@ -31,9 +31,9 @@
 #
 ############################################################################
 
-px4_add_library(AckermannAttControl
-	AckermannAttControl.cpp
+px4_add_library(DifferentialAttControl
+	DifferentialAttControl.cpp
 )
 
-target_link_libraries(AckermannAttControl PUBLIC PID)
-target_include_directories(AckermannAttControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(DifferentialAttControl PUBLIC PID)
+target_include_directories(DifferentialAttControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

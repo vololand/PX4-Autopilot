@@ -31,11 +31,11 @@
  *
  ****************************************************************************/
 
-#include "AckermannAttControl.hpp"
+#include "DifferentialAttControl.hpp"
 
 using namespace time_literals;
 
-AckermannAttControl::AckermannAttControl(ModuleParams *parent) : ModuleParams(parent)
+DifferentialAttControl::DifferentialAttControl(ModuleParams *parent) : ModuleParams(parent)
 {
 	_rover_rate_setpoint_pub.advertise();
 	_rover_throttle_setpoint_pub.advertise();
@@ -44,7 +44,7 @@ AckermannAttControl::AckermannAttControl(ModuleParams *parent) : ModuleParams(pa
 	updateParams();
 }
 
-void AckermannAttControl::updateParams()
+void DifferentialAttControl::updateParams()
 {
 	ModuleParams::updateParams();
 
@@ -58,7 +58,7 @@ void AckermannAttControl::updateParams()
 	_adjusted_yaw_setpoint.setSlewRate(_max_yaw_rate);
 }
 
-void AckermannAttControl::updateAttControl()
+void DifferentialAttControl::updateAttControl()
 {
 	hrt_abstime timestamp_prev = _timestamp;
 	_timestamp = hrt_absolute_time();
@@ -76,13 +76,6 @@ void AckermannAttControl::updateAttControl()
 	}
 
 	if (_vehicle_control_mode.flag_control_attitude_enabled && _vehicle_control_mode.flag_armed) {
-		// Estimate forward speed based on throttle
-		if (_actuator_motors_sub.updated()) {
-			actuator_motors_s actuator_motors;
-			_actuator_motors_sub.copy(&actuator_motors);
-			_estimated_forward_speed = _param_ro_max_thr_speed.get() > FLT_EPSILON ? math::interpolate<float>
-						   (actuator_motors.control[0], -1.f, 1.f, -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get()) : 0.f;
-		}
 
 		if (_vehicle_control_mode.flag_control_manual_enabled) {
 			generateAttitudeSetpoint();
@@ -105,7 +98,7 @@ void AckermannAttControl::updateAttControl()
 
 }
 
-void AckermannAttControl::generateAttitudeSetpoint()
+void DifferentialAttControl::generateAttitudeSetpoint()
 {
 	bool stab_mode_enabled = _vehicle_control_mode.flag_control_manual_enabled
 				 && !_vehicle_control_mode.flag_control_position_enabled && _vehicle_control_mode.flag_control_attitude_enabled;
@@ -132,7 +125,7 @@ void AckermannAttControl::generateAttitudeSetpoint()
 				_adjusted_yaw_setpoint.setForcedValue(0.f);
 				rover_rate_setpoint_s rover_rate_setpoint{};
 				rover_rate_setpoint.timestamp = _timestamp;
-				rover_rate_setpoint.yaw_rate_setpoint = matrix::sign(_estimated_forward_speed) * yaw_rate_setpoint;
+				rover_rate_setpoint.yaw_rate_setpoint = yaw_rate_setpoint;
 				_rover_rate_setpoint_pub.publish(rover_rate_setpoint);
 
 			} else { // Closed loop yaw control if the yaw rate input is zero (keep current yaw)
@@ -153,7 +146,7 @@ void AckermannAttControl::generateAttitudeSetpoint()
 	}
 }
 
-void AckermannAttControl::generateRateSetpoint()
+void DifferentialAttControl::generateRateSetpoint()
 {
 	if (_rover_attitude_setpoint_sub.updated()) {
 		_rover_attitude_setpoint_sub.copy(&_rover_attitude_setpoint);
@@ -170,20 +163,7 @@ void AckermannAttControl::generateRateSetpoint()
 	}
 
 	// Calculate yaw rate limit for slew rate
-	float yaw_slew_rate{0.f};
-
-	if (_param_ra_wheel_base.get() > FLT_EPSILON && _param_ra_max_str_ang.get() > FLT_EPSILON
-	    && PX4_ISFINITE(_estimated_forward_speed)) {
-		float max_possible_yaw_rate = _param_ra_wheel_base.get() > FLT_EPSILON ? fabsf(_estimated_forward_speed) * tanf(
-						      _param_ra_max_str_ang.get()) / _param_ra_wheel_base.get() :
-					      _max_yaw_rate; // Maximum possible yaw rate at current velocity
-		yaw_slew_rate = math::min(max_possible_yaw_rate, _max_yaw_rate);
-
-	} else {
-		yaw_slew_rate = _max_yaw_rate;
-	}
-
-	float yaw_rate_setpoint = RoverControl::attitudeToRateSetpoint(_adjusted_yaw_setpoint, _pid_yaw, yaw_slew_rate,
+	float yaw_rate_setpoint = RoverControl::attitudeToRateSetpoint(_adjusted_yaw_setpoint, _pid_yaw, _max_yaw_rate,
 				  _vehicle_yaw, _rover_attitude_setpoint.yaw_setpoint, _dt);
 
 	_last_rate_setpoint_update = _timestamp;

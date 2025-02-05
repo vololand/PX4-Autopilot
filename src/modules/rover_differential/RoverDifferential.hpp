@@ -57,7 +57,7 @@
 
 // Local includes
 #include "DifferentialRateControl/DifferentialRateControl.hpp"
-//#include "DifferentialAttControl/DifferentialAttControl.hpp"
+#include "DifferentialAttControl/DifferentialAttControl.hpp"
 //#include "DifferentialPosControl/DifferentialPosControl.hpp"
 
 class RoverDifferential : public ModuleBase<RoverDifferential>, public ModuleParams,
@@ -126,7 +126,7 @@ private:
 
 	// Class instances
 	DifferentialRateControl _differential_rate_control{this};
-	// DifferentialAttControl _differential_att_control{this};
+	DifferentialAttControl _differential_att_control{this};
 	// DifferentialPosControl _differential_pos_control{this};
 
 	// Variables
