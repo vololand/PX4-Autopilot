@@ -31,22 +31,9 @@
 #
 ############################################################################
 
-#add_subdirectory(DifferentialRateControl)
-#add_subdirectory(DifferentialAttControl)
-#add_subdirectory(DifferentialPosControl)
-
-px4_add_module(
-	MODULE modules__rover_differential
-	MAIN rover_differential
-	SRCS
-		RoverDifferential.cpp
-		RoverDifferential.hpp
-	DEPENDS
-		#DifferentialRateControl
-		#DifferentialAttControl
-		#DifferentialPosControl
-		px4_work_queue
-		rover_control
-	MODULE_CONFIG
-		module.yaml
+px4_add_library(AckermannPosControl
+	AckermannPosControl.cpp
 )
+
+target_link_libraries(AckermannPosControl PUBLIC PID)
+target_include_directories(AckermannPosControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
