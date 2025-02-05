@@ -142,6 +142,22 @@ parameters:
           decimal: 2
           default: -1
 
+        RO_MAX_YAW_DECEL:
+          description:
+            short: Maximum allowed yaw deceleration for the rover
+            long: |
+              This parameter is used to cap desired yaw deceleration. This is used to adjust incoming yaw rate setpoints
+              to a feasible yaw rate setpoint based on the physical limitation on how fast the yaw rate can change.
+              This leads to a smooth setpoint trajectory for the closed loop yaw rate controller to track.
+              Set to -1 to disable.
+          type: float
+          unit: deg/s^2
+          min: -1
+          max: 10000
+          increment: 0.01
+          decimal: 2
+          default: -1
+
     - group: Rover Attitude Control
       definitions:
         RO_YAW_P:

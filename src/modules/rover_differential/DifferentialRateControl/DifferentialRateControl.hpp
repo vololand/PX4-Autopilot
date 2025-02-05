@@ -55,17 +55,17 @@
 #include <uORB/topics/actuator_motors.h>
 
 /**
- * @brief Class for ackermann rate control.
+ * @brief Class for differential rate control.
  */
-class AckermannRateControl : public ModuleParams
+class DifferentialRateControl : public ModuleParams
 {
 public:
 	/**
-	 * @brief Constructor for AckermannRateControl.
+	 * @brief Constructor for DifferentialRateControl.
 	 * @param parent The parent ModuleParams object.
 	 */
-	AckermannRateControl(ModuleParams *parent);
-	~AckermannRateControl() = default;
+	DifferentialRateControl(ModuleParams *parent);
+	~DifferentialRateControl() = default;
 
 	/**
 	 * @brief Update rate controller.
@@ -106,26 +106,27 @@ private:
 	uORB::Publication<rover_rate_status_s> _rover_rate_status_pub{ORB_ID(rover_rate_status)};
 
 	// Variables
-	float _estimated_forward_speed{0.f}; /*Vehicle speed estimated by interpolating [actuatorMotorSetpoint,  _estimated_forward_speed]
-					       between [0, 0] and [1, _param_ro_max_thr_speed].*/
 	float _max_yaw_rate{0.f};
+	float _max_yaw_accel{0.f};
+	float _max_yaw_decel{0.f};
 	float _vehicle_yaw_rate{0.f};
 	hrt_abstime _timestamp{0};
 	float _dt{0.f}; // Time since last update [s].
 
 	// Controllers
 	PID _pid_yaw_rate;
-	SlewRate<float> _yaw_rate_setpoint{0.f};
+	SlewRate<float> _adjusted_yaw_rate_setpoint{0.f};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::RD_WHEEL_TRACK>)   _param_rd_wheel_track,
+		(ParamFloat<px4::params::RD_MAX_THR_YAW_R>) _param_rd_max_thr_yaw_r,
 		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed,
-		(ParamFloat<px4::params::RA_WHEEL_BASE>)    _param_ra_wheel_base,
-		(ParamFloat<px4::params::RA_MAX_STR_ANG>)   _param_ra_max_str_ang,
 		(ParamFloat<px4::params::RO_MAX_YAW_RATE>)  _param_ro_max_yaw_rate,
 		(ParamFloat<px4::params::RO_YAW_RATE_TH>)   _param_ro_yaw_rate_th,
 		(ParamFloat<px4::params::RO_YAW_RATE_P>)    _param_ro_yaw_rate_p,
 		(ParamFloat<px4::params::RO_YAW_RATE_I>)    _param_ro_yaw_rate_i,
 		(ParamFloat<px4::params::RO_MAX_YAW_ACCEL>) _param_ro_max_yaw_accel,
+		(ParamFloat<px4::params::RO_MAX_YAW_DECEL>) _param_ro_max_yaw_decel,
 		(ParamFloat<px4::params::RO_SPEED_TH>)      _param_ro_speed_th
 	)
 };

@@ -31,9 +31,9 @@
 #
 ############################################################################
 
-px4_add_library(AckermannRateControl
-	AckermannRateControl.cpp
+px4_add_library(DifferentialRateControl
+	DifferentialRateControl.cpp
 )
 
-target_link_libraries(AckermannRateControl PUBLIC PID)
-target_include_directories(AckermannRateControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(DifferentialRateControl PUBLIC PID)
+target_include_directories(DifferentialRateControl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

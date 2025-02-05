@@ -159,6 +159,54 @@ float speedControl(SlewRate<float> &speed_with_rate_limit, PID &pid_speed, const
 	return math::constrain(forward_speed_normalized, -1.f, 1.f);
 }
 
+float yawRateToSpeedDiffSetpoint(SlewRate<float> &adjusted_yaw_rate_setpoint, PID &pid_yaw_rate,
+				 const float yaw_rate_setpoint, const float vehicle_yaw_rate,
+				 const float max_thr_yaw_r, const float max_yaw_accel, const float max_yaw_decel, const float wheel_track,
+				 const float dt)
+{
+	// Apply acceleration and deceleration limit
+	if (fabsf(yaw_rate_setpoint) >= fabsf(vehicle_yaw_rate) && max_yaw_accel > FLT_EPSILON) {
+		adjusted_yaw_rate_setpoint.setSlewRate(max_yaw_accel);
+
+		// Reinitialize slew rate if current value is closer to setpoint than post slew rate value
+		if (fabsf(adjusted_yaw_rate_setpoint.getState() - vehicle_yaw_rate) > fabsf(
+			    yaw_rate_setpoint - vehicle_yaw_rate)) {
+			adjusted_yaw_rate_setpoint.setForcedValue(vehicle_yaw_rate);
+		}
+
+		adjusted_yaw_rate_setpoint.update(yaw_rate_setpoint, dt);
+
+	} else if (fabsf(yaw_rate_setpoint) < fabsf(vehicle_yaw_rate) && max_yaw_decel > FLT_EPSILON) {
+		adjusted_yaw_rate_setpoint.setSlewRate(max_yaw_decel);
+
+		// Reinitialize slew rate if current value is closer to setpoint than post slew rate value
+		if (fabsf(adjusted_yaw_rate_setpoint.getState() - vehicle_yaw_rate) > fabsf(
+			    yaw_rate_setpoint - vehicle_yaw_rate)) {
+			adjusted_yaw_rate_setpoint.setForcedValue(vehicle_yaw_rate);
+		}
+
+		adjusted_yaw_rate_setpoint.update(yaw_rate_setpoint, dt);
+
+	} else { // Fallthrough if slew rate is not configured
+		adjusted_yaw_rate_setpoint.setForcedValue(yaw_rate_setpoint);
+	}
+
+	// Transform yaw rate into speed difference
+	float speed_diff_normalized{0.f};
+
+	if (wheel_track > FLT_EPSILON && max_thr_yaw_r > FLT_EPSILON) { // Feedforward
+		const float speed_diff = adjusted_yaw_rate_setpoint.getState() * wheel_track /
+					 2.f;
+		speed_diff_normalized = math::interpolate<float>(speed_diff, -max_thr_yaw_r,
+					max_thr_yaw_r, -1.f, 1.f);
+	}
+
+	pid_yaw_rate.setSetpoint(adjusted_yaw_rate_setpoint.getState());
+	speed_diff_normalized += pid_yaw_rate.update(vehicle_yaw_rate, dt);
+
+	return math::constrain(speed_diff_normalized, -1.f, 1.f);
+}
+
 void globalToLocalSetpointTriplet(Vector2f &curr_wp_ned, Vector2f &prev_wp_ned, Vector2f &next_wp_ned,
 				  position_setpoint_triplet_s position_setpoint_triplet, Vector2f &curr_pos_ned, Vector2d &home_pos,
 				  MapProjection &global_ned_proj_ref)

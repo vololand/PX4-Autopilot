@@ -56,7 +56,7 @@
 #include <uORB/topics/manual_control_setpoint.h>
 
 // Local includes
-//#include "DifferentialRateControl/DifferentialRateControl.hpp"
+#include "DifferentialRateControl/DifferentialRateControl.hpp"
 //#include "DifferentialAttControl/DifferentialAttControl.hpp"
 //#include "DifferentialPosControl/DifferentialPosControl.hpp"
 
@@ -96,7 +96,7 @@ private:
 	void generateSteeringSetpoint();
 
 	/**
-	 * @brief Generate and publish actuatorMotors/actuatorServos setpoints from roverThrottleSetpoint/roverSteeringSetpoint.
+	 * @brief Generate and publish actuatorMotors setpoints from roverThrottleSetpoint/roverSteeringSetpoint.
 	 */
 	void generateActuatorSetpoint();
 
@@ -125,7 +125,7 @@ private:
 	uORB::Publication<rover_steering_setpoint_s> _rover_steering_setpoint_pub{ORB_ID(rover_steering_setpoint)};
 
 	// Class instances
-	// DifferentialRateControl _differential_rate_control{this};
+	DifferentialRateControl _differential_rate_control{this};
 	// DifferentialAttControl _differential_att_control{this};
 	// DifferentialPosControl _differential_pos_control{this};
 

@@ -31,11 +31,11 @@
  *
  ****************************************************************************/
 
-#include "AckermannRateControl.hpp"
+#include "DifferentialRateControl.hpp"
 
 using namespace time_literals;
 
-AckermannRateControl::AckermannRateControl(ModuleParams *parent) : ModuleParams(parent)
+DifferentialRateControl::DifferentialRateControl(ModuleParams *parent) : ModuleParams(parent)
 {
 	_rover_rate_setpoint_pub.advertise();
 	_rover_throttle_setpoint_pub.advertise();
@@ -44,17 +44,19 @@ AckermannRateControl::AckermannRateControl(ModuleParams *parent) : ModuleParams(
 	updateParams();
 }
 
-void AckermannRateControl::updateParams()
+void DifferentialRateControl::updateParams()
 {
 	ModuleParams::updateParams();
 	_max_yaw_rate = _param_ro_max_yaw_rate.get() * M_DEG_TO_RAD_F;
+	_max_yaw_accel = _param_ro_max_yaw_accel.get() * M_DEG_TO_RAD_F;
+	_max_yaw_decel = _param_ro_max_yaw_decel.get() * M_DEG_TO_RAD_F;
 	_pid_yaw_rate.setGains(_param_ro_yaw_rate_p.get(), _param_ro_yaw_rate_i.get(), 0.f);
 	_pid_yaw_rate.setIntegralLimit(1.f);
 	_pid_yaw_rate.setOutputLimit(1.f);
-	_yaw_rate_setpoint.setSlewRate(_param_ro_max_yaw_accel.get() * M_DEG_TO_RAD_F);
+	_adjusted_yaw_rate_setpoint.setSlewRate(_max_yaw_accel);
 }
 
-void AckermannRateControl::updateRateControl()
+void DifferentialRateControl::updateRateControl()
 {
 	hrt_abstime timestamp_prev = _timestamp;
 	_timestamp = hrt_absolute_time();
@@ -72,15 +74,6 @@ void AckermannRateControl::updateRateControl()
 	}
 
 	if (_vehicle_control_mode.flag_control_rates_enabled  && _vehicle_control_mode.flag_armed) {
-		// Estimate forward speed based on throttle
-		if (_actuator_motors_sub.updated()) {
-			actuator_motors_s actuator_motors;
-			_actuator_motors_sub.copy(&actuator_motors);
-			_estimated_forward_speed = _param_ro_max_thr_speed.get() > FLT_EPSILON ? math::interpolate<float>
-						   (actuator_motors.control[0], -1.f, 1.f, -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get()) : 0.f;
-			_estimated_forward_speed = fabsf(_estimated_forward_speed) >  _param_ro_speed_th.get() ? _estimated_forward_speed : 0.f;
-		}
-
 		if (_vehicle_control_mode.flag_control_manual_enabled) {
 			generateRateSetpoint();
 		}
@@ -89,20 +82,20 @@ void AckermannRateControl::updateRateControl()
 
 	} else { // Reset controller and slew rate when rate control is not active
 		_pid_yaw_rate.resetIntegral();
-		_yaw_rate_setpoint.setForcedValue(0.f);
+		_adjusted_yaw_rate_setpoint.setForcedValue(0.f);
 	}
 
 	// Publish rate controller status (logging only)
 	rover_rate_status_s rover_rate_status;
 	rover_rate_status.timestamp = _timestamp;
 	rover_rate_status.measured_yaw_rate = _vehicle_yaw_rate;
-	rover_rate_status.adjusted_yaw_rate_setpoint = _yaw_rate_setpoint.getState();
+	rover_rate_status.adjusted_yaw_rate_setpoint = _adjusted_yaw_rate_setpoint.getState();
 	rover_rate_status.pid_yaw_rate_integral = _pid_yaw_rate.getIntegral();
 	_rover_rate_status_pub.publish(rover_rate_status);
 
 }
 
-void AckermannRateControl::generateRateSetpoint()
+void DifferentialRateControl::generateRateSetpoint()
 {
 	bool acro_mode_enabled = _vehicle_control_mode.flag_control_manual_enabled
 				 && !_vehicle_control_mode.flag_control_position_enabled && !_vehicle_control_mode.flag_control_attitude_enabled;
@@ -119,62 +112,31 @@ void AckermannRateControl::generateRateSetpoint()
 			_rover_throttle_setpoint_pub.publish(rover_throttle_setpoint);
 			rover_rate_setpoint_s rover_rate_setpoint{};
 			rover_rate_setpoint.timestamp = _timestamp;
-			rover_rate_setpoint.yaw_rate_setpoint = necessary_parameters_set ? matrix::sign(_estimated_forward_speed) *
-								math::interpolate<float>
-								(manual_control_setpoint.roll,
-										-1.f, 1.f, -_max_yaw_rate, _max_yaw_rate) : 0.f;
+			rover_rate_setpoint.yaw_rate_setpoint = necessary_parameters_set ? math::interpolate<float>
+								(manual_control_setpoint.roll, -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate) : 0.f;
 			_rover_rate_setpoint_pub.publish(rover_rate_setpoint);
 		}
 
 	}
 }
 
-void AckermannRateControl::generateSteeringSetpoint()
+void DifferentialRateControl::generateSteeringSetpoint()
 {
 	if (_rover_rate_setpoint_sub.updated()) {
 		_rover_rate_setpoint_sub.copy(&_rover_rate_setpoint);
 
 	}
 
-	float steering_setpoint{0.f};
+	float speed_diff_normalized{0.f};
 
-	if (fabsf(_estimated_forward_speed) > FLT_EPSILON) {
-		// Set up feasible yaw rate setpoint
-		float max_possible_yaw_rate = _param_ra_wheel_base.get() > FLT_EPSILON ? fabsf(_estimated_forward_speed) * tanf(
-						      _param_ra_max_str_ang.get()) / _param_ra_wheel_base.get() :
-					      _max_yaw_rate; // Maximum possible yaw rate at current velocity
-		float yaw_rate_limit = math::min(max_possible_yaw_rate, _max_yaw_rate);
-		float constrained_yaw_rate = math::constrain(_rover_rate_setpoint.yaw_rate_setpoint, -yaw_rate_limit, yaw_rate_limit);
-
-		if (_param_ro_max_yaw_accel.get() > FLT_EPSILON) { // Apply slew rate if configured
-			if (fabsf(_yaw_rate_setpoint.getState() - _vehicle_yaw_rate) > fabsf(constrained_yaw_rate -
-					_vehicle_yaw_rate)) {
-				_yaw_rate_setpoint.setForcedValue(_vehicle_yaw_rate);
-			}
-
-			_yaw_rate_setpoint.update(constrained_yaw_rate, _dt);
-
-		} else {
-			_yaw_rate_setpoint.setForcedValue(constrained_yaw_rate);
-		}
-
-		// Feed forward
-		steering_setpoint = fabsf(_estimated_forward_speed) > FLT_EPSILON ? atanf(_yaw_rate_setpoint.getState() *
-				    _param_ra_wheel_base.get() / _estimated_forward_speed) : 0.f;
-
-		// Feedback (Only when driving forwards because backwards driving is NMP and can introduce instability)
-		if (_estimated_forward_speed > FLT_EPSILON) {
-			_pid_yaw_rate.setSetpoint(_yaw_rate_setpoint.getState());
-			steering_setpoint += _pid_yaw_rate.update(_vehicle_yaw_rate, _dt);
-		}
-
-	} else {
-		_pid_yaw_rate.resetIntegral();
+	if (PX4_ISFINITE(_rover_rate_setpoint.yaw_rate_setpoint) && PX4_ISFINITE(_vehicle_yaw_rate)) {
+		speed_diff_normalized = RoverControl::yawRateToSpeedDiffSetpoint(_adjusted_yaw_rate_setpoint, _pid_yaw_rate,
+					_rover_rate_setpoint.yaw_rate_setpoint, _vehicle_yaw_rate, _param_rd_max_thr_yaw_r.get(), _max_yaw_accel,
+					_max_yaw_decel, _param_rd_wheel_track.get(), _dt);
 	}
 
 	rover_steering_setpoint_s rover_steering_setpoint{};
 	rover_steering_setpoint.timestamp = _timestamp;
-	rover_steering_setpoint.normalized_steering_angle = math::interpolate<float>(steering_setpoint,
-			-_param_ra_max_str_ang.get(), _param_ra_max_str_ang.get(), -1.f, 1.f); // Normalize steering setpoint
+	rover_steering_setpoint.normalized_speed_diff = speed_diff_normalized;
 	_rover_steering_setpoint_pub.publish(rover_steering_setpoint);
 }

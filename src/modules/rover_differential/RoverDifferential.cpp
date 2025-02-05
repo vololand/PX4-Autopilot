@@ -71,7 +71,7 @@ void RoverDifferential::Run()
 
 	// _differential_pos_control.updatePosControl();
 	// _differential_att_control.updateAttControl();
-	// _differential_rate_control.updateRateControl();
+	_differential_rate_control.updateRateControl();
 
 	if (_vehicle_control_mode_sub.updated()) {
 		_vehicle_control_mode_sub.copy(&_vehicle_control_mode);

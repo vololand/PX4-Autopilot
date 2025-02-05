@@ -31,7 +31,7 @@
 #
 ############################################################################
 
-#add_subdirectory(DifferentialRateControl)
+add_subdirectory(DifferentialRateControl)
 #add_subdirectory(DifferentialAttControl)
 #add_subdirectory(DifferentialPosControl)
 
@@ -42,7 +42,7 @@ px4_add_module(
 		RoverDifferential.cpp
 		RoverDifferential.hpp
 	DEPENDS
-		#DifferentialRateControl
+		DifferentialRateControl
 		#DifferentialAttControl
 		#DifferentialPosControl
 		px4_work_queue
