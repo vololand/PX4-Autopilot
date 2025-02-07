@@ -93,7 +93,8 @@ float speedControl(SlewRate<float> &speed_with_rate_limit, PID &pid_speed, float
 		   float vehicle_speed, float max_accel, float max_decel, float max_thr_speed, float dt);
 
 /**
- * Turn yaw rate setpoint into normalized speed difference setpoint
+ * Applies yaw rate slew rate to a yaw setpoint and calculates the necessary speed diff setpoint
+ * using a PID controller.
  * @param adjusted_yaw_rate_setpoint Yaw rate setpoint with applied slew rate [-1, 1] (Updated by this function).
  * @param pid_yaw_rate Yaw rate PID (Updated by this function).
  * @param yaw_rate_setpoint Yaw rate setpoint [rad/s].
@@ -105,9 +106,9 @@ float speedControl(SlewRate<float> &speed_with_rate_limit, PID &pid_speed, float
  * @param dt Time since last update [s].
  * @return Normalized speed difference setpoint [-1, 1].
  */
-float yawRateToSpeedDiffSetpoint(SlewRate<float> &adjusted_yaw_rate_setpoint, PID &pid_yaw_rate,
-				 float yaw_rate_setpoint, float vehicle_yaw_rate, float max_thr_yaw_r, float max_yaw_accel, float max_yaw_decel,
-				 float wheel_track, float dt);
+float rateControl(SlewRate<float> &adjusted_yaw_rate_setpoint, PID &pid_yaw_rate,
+		  float yaw_rate_setpoint, float vehicle_yaw_rate, float max_thr_yaw_r, float max_yaw_accel, float max_yaw_decel,
+		  float wheel_track, float dt);
 
 /**
  * Projects positionSetpointTriplet waypoints from global to ned frame.

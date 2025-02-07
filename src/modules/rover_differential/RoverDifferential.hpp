@@ -139,9 +139,9 @@ private:
 
 	// Parameters
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
-		(ParamFloat<px4::params::RO_MAX_ACCEL>) _param_ro_max_accel,
-		(ParamFloat<px4::params::RO_MAX_DECEL>) _param_ro_max_decel,
+		(ParamInt<px4::params::CA_R_REV>)           _param_r_rev,
+		(ParamFloat<px4::params::RO_ACCEL_LIM>)     _param_ro_accel_limit,
+		(ParamFloat<px4::params::RO_DECEL_LIM>)     _param_ro_decel_limit,
 		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed
 	)
 };

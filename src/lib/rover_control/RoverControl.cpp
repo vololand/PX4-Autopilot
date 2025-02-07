@@ -159,10 +159,9 @@ float speedControl(SlewRate<float> &speed_with_rate_limit, PID &pid_speed, const
 	return math::constrain(forward_speed_normalized, -1.f, 1.f);
 }
 
-float yawRateToSpeedDiffSetpoint(SlewRate<float> &adjusted_yaw_rate_setpoint, PID &pid_yaw_rate,
-				 const float yaw_rate_setpoint, const float vehicle_yaw_rate,
-				 const float max_thr_yaw_r, const float max_yaw_accel, const float max_yaw_decel, const float wheel_track,
-				 const float dt)
+float rateControl(SlewRate<float> &adjusted_yaw_rate_setpoint, PID &pid_yaw_rate, const float yaw_rate_setpoint,
+		  const float vehicle_yaw_rate, const float max_thr_yaw_r, const float max_yaw_accel, const float max_yaw_decel,
+		  const float wheel_track, const float dt)
 {
 	// Apply acceleration and deceleration limit
 	if (fabsf(yaw_rate_setpoint) >= fabsf(vehicle_yaw_rate) && max_yaw_accel > FLT_EPSILON) {

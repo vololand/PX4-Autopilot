@@ -40,7 +40,7 @@ DifferentialPosControl::DifferentialPosControl(ModuleParams *parent) : ModulePar
 	_rover_rate_setpoint_pub.advertise();
 	_rover_throttle_setpoint_pub.advertise();
 	_rover_attitude_setpoint_pub.advertise();
-	_rover_position_status_pub.advertise();
+	_rover_velocity_status_pub.advertise();
 	updateParams();
 }
 
@@ -50,10 +50,10 @@ void DifferentialPosControl::updateParams()
 	_pid_speed.setGains(_param_ro_speed_p.get(), _param_ro_speed_i.get(), 0.f);
 	_pid_speed.setIntegralLimit(1.f);
 	_pid_speed.setOutputLimit(1.f);
-	_max_yaw_rate = _param_ro_max_yaw_rate.get() * M_DEG_TO_RAD_F;
+	_max_yaw_rate = _param_ro_yaw_rate_limit.get() * M_DEG_TO_RAD_F;
 
-	if (_param_ro_max_accel.get() > FLT_EPSILON) {
-		_speed_setpoint.setSlewRate(_param_ro_max_accel.get());
+	if (_param_ro_accel_limit.get() > FLT_EPSILON) {
+		_speed_setpoint.setSlewRate(_param_ro_accel_limit.get());
 	}
 }
 
@@ -88,8 +88,8 @@ void DifferentialPosControl::updatePosControl()
 
 		rover_throttle_setpoint_s rover_throttle_setpoint{};
 		rover_throttle_setpoint.timestamp = _timestamp;
-		rover_throttle_setpoint.throttle_body_x = RoverControl::speedToThrottleSetpoint(_speed_setpoint, _pid_speed,
-				_forward_speed_setpoint, _vehicle_forward_speed, _param_ro_max_accel.get(), _param_ro_max_decel.get(),
+		rover_throttle_setpoint.throttle_body_x = RoverControl::speedControl(_speed_setpoint, _pid_speed,
+				_forward_speed_setpoint, _vehicle_forward_speed, _param_ro_accel_limit.get(), _param_ro_decel_limit.get(),
 				_param_ro_max_thr_speed.get(), _dt);
 		rover_throttle_setpoint.throttle_body_y = 0.f;
 		_rover_throttle_setpoint_pub.publish(rover_throttle_setpoint);
@@ -100,17 +100,17 @@ void DifferentialPosControl::updatePosControl()
 	}
 
 	// Publish position controller status (logging only)
-	rover_position_status_s rover_position_status;
-	rover_position_status.timestamp = _timestamp;
-	rover_position_status.measured_forward_speed = _vehicle_forward_speed;
-	rover_position_status.forward_speed_setpoint = _forward_speed_setpoint;
-	rover_position_status.adjusted_forward_speed_setpoint = _speed_setpoint.getState();
-	rover_position_status.measured_lateral_speed = _vehicle_lateral_speed;
-	rover_position_status.lateral_speed_setpoint = NAN;
-	rover_position_status.adjusted_lateral_speed_setpoint = NAN;
-	rover_position_status.pid_forward_throttle_integral = _pid_speed.getIntegral();
-	rover_position_status.pid_lateral_throttle_integral = NAN;
-	_rover_position_status_pub.publish(rover_position_status);
+	rover_velocity_status_s rover_velocity_status;
+	rover_velocity_status.timestamp = _timestamp;
+	rover_velocity_status.measured_speed_body_x = _vehicle_forward_speed;
+	rover_velocity_status.speed_body_x_setpoint = _forward_speed_setpoint;
+	rover_velocity_status.adjusted_speed_body_x_setpoint = _speed_setpoint.getState();
+	rover_velocity_status.measured_speed_body_y = _vehicle_lateral_speed;
+	rover_velocity_status.speed_body_y_setpoint = NAN;
+	rover_velocity_status.adjusted_speed_body_y_setpoint = NAN;
+	rover_velocity_status.pid_throttle_body_x_integral = _pid_speed.getIntegral();
+	rover_velocity_status.pid_throttle_body_y_integral = NAN;
+	_rover_velocity_status_pub.publish(rover_velocity_status);
 }
 
 void DifferentialPosControl::updateSubscriptions()
@@ -181,7 +181,7 @@ void DifferentialPosControl::manualPositionMode()
 
 	if (_manual_control_setpoint_sub.update(&manual_control_setpoint) && necessary_parameters_set) {
 		_forward_speed_setpoint = math::interpolate<float>(manual_control_setpoint.throttle,
-					  -1.f, 1.f, -_param_ro_max_speed.get(), _param_ro_max_speed.get());
+					  -1.f, 1.f, -_param_ro_speed_limit.get(), _param_ro_speed_limit.get());
 		float yaw_rate_setpoint = math::interpolate<float>(math::deadzone(manual_control_setpoint.roll,
 					  _param_ro_yaw_stick_dz.get()), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
 
@@ -226,9 +226,9 @@ void DifferentialPosControl::offboardPositionMode()
 	const float distance_to_target = (target_waypoint_ned - _curr_pos_ned).norm();
 
 	if (target_waypoint_ned.isAllFinite() && distance_to_target > _param_nav_acc_rad.get()) {
-		float speed_setpoint = math::trajectory::computeMaxSpeedFromDistance(_param_ro_max_jerk.get(),
-				       _param_ro_max_decel.get(), distance_to_target, 0.f);
-		_forward_speed_setpoint = math::min(speed_setpoint, _param_ro_max_speed.get());
+		float speed_setpoint = math::trajectory::computeMaxSpeedFromDistance(_param_ro_jerk_limit.get(),
+				       _param_ro_decel_limit.get(), distance_to_target, 0.f);
+		_forward_speed_setpoint = math::min(speed_setpoint, _param_ro_speed_limit.get());
 		rover_attitude_setpoint_s rover_attitude_setpoint{};
 		rover_attitude_setpoint.timestamp = _timestamp;
 		rover_attitude_setpoint.yaw_setpoint = _posctl_pure_pursuit.calcDesiredHeading(target_waypoint_ned, _curr_pos_ned,
@@ -293,8 +293,8 @@ void DifferentialPosControl::autoPositionMode()
 	switch (_currentState) {
 	case GuidanceState::DRIVING: {
 			// Calculate desired forward speed
-			_forward_speed_setpoint = calcSpeedSetpoint(_cruising_speed, distance_to_curr_wp, _param_ro_max_decel.get(),
-						  _param_ro_max_jerk.get(), _waypoint_transition_angle, _param_ro_max_speed.get(), _param_rd_trans_drv_trn.get(),
+			_forward_speed_setpoint = calcSpeedSetpoint(_cruising_speed, distance_to_curr_wp, _param_ro_decel_limit.get(),
+						  _param_ro_jerk_limit.get(), _waypoint_transition_angle, _param_ro_speed_limit.get(), _param_rd_trans_drv_trn.get(),
 						  _param_rd_miss_spd_gain.get());
 
 		} break;
@@ -341,7 +341,7 @@ void DifferentialPosControl::updateAutoSubscriptions()
 
 		// Waypoint cruising speed
 		_cruising_speed = position_setpoint_triplet.current.cruising_speed > 0.f ? math::constrain(
-					  position_setpoint_triplet.current.cruising_speed, 0.f, _param_ro_max_speed.get()) : _param_ro_max_speed.get();
+					  position_setpoint_triplet.current.cruising_speed, 0.f, _param_ro_speed_limit.get()) : _param_ro_speed_limit.get();
 	}
 
 	if (_mission_result_sub.updated()) {

@@ -48,11 +48,11 @@ void DifferentialAttControl::updateParams()
 {
 	ModuleParams::updateParams();
 
-	if (_param_ro_max_yaw_rate.get() > FLT_EPSILON) {
-		_max_yaw_rate = _param_ro_max_yaw_rate.get() * M_DEG_TO_RAD_F;
+	if (_param_ro_yaw_rate_limit.get() > FLT_EPSILON) {
+		_max_yaw_rate = _param_ro_yaw_rate_limit.get() * M_DEG_TO_RAD_F;
 	}
 
-	_pid_yaw.setGains(_param_ro_yaw_p.get(), _param_ro_yaw_i.get(), 0.f);
+	_pid_yaw.setGains(_param_ro_yaw_p.get(), 0.f, 0.f);
 	_pid_yaw.setIntegralLimit(_max_yaw_rate);
 	_pid_yaw.setOutputLimit(_max_yaw_rate);
 	_adjusted_yaw_setpoint.setSlewRate(_max_yaw_rate);
@@ -93,7 +93,6 @@ void DifferentialAttControl::updateAttControl()
 	rover_attitude_status.timestamp = _timestamp;
 	rover_attitude_status.measured_yaw = _vehicle_yaw;
 	rover_attitude_status.adjusted_yaw_setpoint = _adjusted_yaw_setpoint.getState();
-	rover_attitude_status.pid_yaw_integral = _pid_yaw.getIntegral();
 	_rover_attitude_status_pub.publish(rover_attitude_status);
 
 }
@@ -163,7 +162,7 @@ void DifferentialAttControl::generateRateSetpoint()
 	}
 
 	// Calculate yaw rate limit for slew rate
-	float yaw_rate_setpoint = RoverControl::attitudeToRateSetpoint(_adjusted_yaw_setpoint, _pid_yaw, _max_yaw_rate,
+	float yaw_rate_setpoint = RoverControl::attitudeControl(_adjusted_yaw_setpoint, _pid_yaw, _max_yaw_rate,
 				  _vehicle_yaw, _rover_attitude_setpoint.yaw_setpoint, _dt);
 
 	_last_rate_setpoint_update = _timestamp;

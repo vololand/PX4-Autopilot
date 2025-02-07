@@ -47,8 +47,8 @@ DifferentialRateControl::DifferentialRateControl(ModuleParams *parent) : ModuleP
 void DifferentialRateControl::updateParams()
 {
 	ModuleParams::updateParams();
-	_max_yaw_rate = _param_ro_max_yaw_rate.get() * M_DEG_TO_RAD_F;
-	_max_yaw_accel = _param_ro_max_yaw_accel.get() * M_DEG_TO_RAD_F;
+	_max_yaw_rate = _param_ro_yaw_rate_limit.get() * M_DEG_TO_RAD_F;
+	_max_yaw_accel = _param_ro_yaw_accel_limit.get() * M_DEG_TO_RAD_F;
 	_max_yaw_decel = _param_ro_max_yaw_decel.get() * M_DEG_TO_RAD_F;
 	_pid_yaw_rate.setGains(_param_ro_yaw_rate_p.get(), _param_ro_yaw_rate_i.get(), 0.f);
 	_pid_yaw_rate.setIntegralLimit(1.f);
@@ -130,7 +130,7 @@ void DifferentialRateControl::generateSteeringSetpoint()
 	float speed_diff_normalized{0.f};
 
 	if (PX4_ISFINITE(_rover_rate_setpoint.yaw_rate_setpoint) && PX4_ISFINITE(_vehicle_yaw_rate)) {
-		speed_diff_normalized = RoverControl::yawRateToSpeedDiffSetpoint(_adjusted_yaw_rate_setpoint, _pid_yaw_rate,
+		speed_diff_normalized = RoverControl::rateControl(_adjusted_yaw_rate_setpoint, _pid_yaw_rate,
 					_rover_rate_setpoint.yaw_rate_setpoint, _vehicle_yaw_rate, _param_rd_max_thr_yaw_r.get(), _max_yaw_accel,
 					_max_yaw_decel, _param_rd_wheel_track.get(), _dt);
 	}

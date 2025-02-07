@@ -121,11 +121,11 @@ private:
 		(ParamFloat<px4::params::RD_WHEEL_TRACK>)   _param_rd_wheel_track,
 		(ParamFloat<px4::params::RD_MAX_THR_YAW_R>) _param_rd_max_thr_yaw_r,
 		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed,
-		(ParamFloat<px4::params::RO_MAX_YAW_RATE>)  _param_ro_max_yaw_rate,
+		(ParamFloat<px4::params::RO_YAW_RATE_LIM>)  _param_ro_yaw_rate_limit,
 		(ParamFloat<px4::params::RO_YAW_RATE_TH>)   _param_ro_yaw_rate_th,
 		(ParamFloat<px4::params::RO_YAW_RATE_P>)    _param_ro_yaw_rate_p,
 		(ParamFloat<px4::params::RO_YAW_RATE_I>)    _param_ro_yaw_rate_i,
-		(ParamFloat<px4::params::RO_MAX_YAW_ACCEL>) _param_ro_max_yaw_accel,
+		(ParamFloat<px4::params::RO_YAW_ACCEL_LIM>) _param_ro_yaw_accel_limit,
 		(ParamFloat<px4::params::RO_MAX_YAW_DECEL>) _param_ro_max_yaw_decel,
 		(ParamFloat<px4::params::RO_SPEED_TH>)      _param_ro_speed_th
 	)

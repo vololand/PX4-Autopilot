@@ -54,8 +54,8 @@ void RoverDifferential::updateParams()
 {
 	ModuleParams::updateParams();
 
-	if (_param_ro_max_accel.get() > FLT_EPSILON && _param_ro_max_thr_speed.get() > FLT_EPSILON) {
-		_motor_setpoint.setSlewRate(_param_ro_max_accel.get() / _param_ro_max_thr_speed.get());
+	if (_param_ro_accel_limit.get() > FLT_EPSILON && _param_ro_max_thr_speed.get() > FLT_EPSILON) {
+		_motor_setpoint.setSlewRate(_param_ro_accel_limit.get() / _param_ro_max_thr_speed.get());
 	}
 }
 
@@ -125,8 +125,9 @@ void RoverDifferential::generateActuatorSetpoint()
 		_rover_steering_setpoint_sub.copy(&_rover_steering_setpoint);
 	}
 
-	float forward_throttle = RoverControl::throttleToMotorSetpoint(_motor_setpoint,
-				 _rover_throttle_setpoint.throttle_body_x, _current_motor_setpoint, _param_ro_max_accel.get(), _param_ro_max_decel.get(),
+	float forward_throttle = RoverControl::throttleControl(_motor_setpoint,
+				 _rover_throttle_setpoint.throttle_body_x, _current_motor_setpoint, _param_ro_accel_limit.get(),
+				 _param_ro_decel_limit.get(),
 				 _param_ro_max_thr_speed.get(), _dt);
 	actuator_motors_s actuator_motors{};
 	actuator_motors.reversible_flags = _param_r_rev.get();

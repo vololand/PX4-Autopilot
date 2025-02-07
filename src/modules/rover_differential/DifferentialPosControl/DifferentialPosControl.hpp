@@ -48,7 +48,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/rover_rate_setpoint.h>
 #include <uORB/topics/rover_throttle_setpoint.h>
-#include <uORB/topics/rover_position_status.h>
+#include <uORB/topics/rover_velocity_status.h>
 #include <uORB/topics/rover_attitude_setpoint.h>
 #include <uORB/topics/rover_steering_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -174,7 +174,7 @@ private:
 	uORB::Publication<rover_rate_setpoint_s> _rover_rate_setpoint_pub{ORB_ID(rover_rate_setpoint)};
 	uORB::Publication<rover_throttle_setpoint_s> _rover_throttle_setpoint_pub{ORB_ID(rover_throttle_setpoint)};
 	uORB::Publication<rover_attitude_setpoint_s> _rover_attitude_setpoint_pub{ORB_ID(rover_attitude_setpoint)};
-	uORB::Publication<rover_position_status_s> _rover_position_status_pub{ORB_ID(rover_position_status)};
+	uORB::Publication<rover_velocity_status_s> _rover_velocity_status_pub{ORB_ID(rover_velocity_status)};
 	uORB::Publication<position_controller_status_s>	_position_controller_status_pub{ORB_ID(position_controller_status)};
 
 	// Variables
@@ -220,13 +220,13 @@ private:
 		(ParamFloat<px4::params::RO_SPEED_P>) 	    _param_ro_speed_p,
 		(ParamFloat<px4::params::RO_SPEED_I>)       _param_ro_speed_i,
 		(ParamFloat<px4::params::RO_YAW_STICK_DZ>)  _param_ro_yaw_stick_dz,
-		(ParamFloat<px4::params::RO_MAX_ACCEL>)     _param_ro_max_accel,
-		(ParamFloat<px4::params::RO_MAX_DECEL>)     _param_ro_max_decel,
-		(ParamFloat<px4::params::RO_MAX_JERK>)      _param_ro_max_jerk,
-		(ParamFloat<px4::params::RO_MAX_SPEED>)     _param_ro_max_speed,
+		(ParamFloat<px4::params::RO_ACCEL_LIM>)     _param_ro_accel_limit,
+		(ParamFloat<px4::params::RO_DECEL_LIM>)     _param_ro_decel_limit,
+		(ParamFloat<px4::params::RO_JERK_LIM>)      _param_ro_jerk_limit,
+		(ParamFloat<px4::params::RO_SPEED_LIM>)     _param_ro_speed_limit,
 		(ParamFloat<px4::params::RO_SPEED_TH>)      _param_ro_speed_th,
 		(ParamFloat<px4::params::PP_LOOKAHD_MAX>)   _param_pp_lookahd_max,
-		(ParamFloat<px4::params::RO_MAX_YAW_RATE>)  _param_ro_max_yaw_rate,
+		(ParamFloat<px4::params::RO_YAW_RATE_LIM>)  _param_ro_yaw_rate_limit,
 		(ParamFloat<px4::params::NAV_ACC_RAD>)      _param_nav_acc_rad
 
 	)
