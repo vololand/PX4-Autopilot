@@ -71,13 +71,13 @@ void AckermannRateControl::updateRateControl()
 				    vehicle_angular_velocity.xyz[2] : 0.f;
 	}
 
-	if (_vehicle_control_mode.flag_control_rates_enabled  && _vehicle_control_mode.flag_armed) {
+	if (_vehicle_control_mode.flag_control_rates_enabled  && _vehicle_control_mode.flag_armed && runSanityChecks()) {
 		// Estimate forward speed based on throttle
 		if (_actuator_motors_sub.updated()) {
 			actuator_motors_s actuator_motors;
 			_actuator_motors_sub.copy(&actuator_motors);
-			_estimated_speed_body_x = _param_ro_max_thr_speed.get() > FLT_EPSILON ? math::interpolate<float>
-						  (actuator_motors.control[0], -1.f, 1.f, -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get()) : 0.f;
+			_estimated_speed_body_x = math::interpolate<float>(actuator_motors.control[0], -1.f, 1.f,
+						  -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get());
 			_estimated_speed_body_x = fabsf(_estimated_speed_body_x) >  _param_ro_speed_th.get() ? _estimated_speed_body_x : 0.f;
 		}
 
@@ -111,18 +111,15 @@ void AckermannRateControl::generateRateSetpoint()
 		manual_control_setpoint_s manual_control_setpoint{};
 
 		if (_manual_control_setpoint_sub.update(&manual_control_setpoint)) {
-			bool necessary_parameters_set = _max_yaw_rate > FLT_EPSILON &&  _param_ro_max_thr_speed.get() > FLT_EPSILON;
 			rover_throttle_setpoint_s rover_throttle_setpoint{};
 			rover_throttle_setpoint.timestamp = _timestamp;
-			rover_throttle_setpoint.throttle_body_x = necessary_parameters_set ? manual_control_setpoint.throttle : 0.f;
+			rover_throttle_setpoint.throttle_body_x = manual_control_setpoint.throttle;
 			rover_throttle_setpoint.throttle_body_y = 0.f;
 			_rover_throttle_setpoint_pub.publish(rover_throttle_setpoint);
 			rover_rate_setpoint_s rover_rate_setpoint{};
 			rover_rate_setpoint.timestamp = _timestamp;
-			rover_rate_setpoint.yaw_rate_setpoint = necessary_parameters_set ? matrix::sign(_estimated_speed_body_x) *
-								math::interpolate<float>
-								(manual_control_setpoint.roll,
-										-1.f, 1.f, -_max_yaw_rate, _max_yaw_rate) : 0.f;
+			rover_rate_setpoint.yaw_rate_setpoint = matrix::sign(_estimated_speed_body_x) * math::interpolate<float>
+								(manual_control_setpoint.roll, -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
 			_rover_rate_setpoint_pub.publish(rover_rate_setpoint);
 		}
 
@@ -140,9 +137,8 @@ void AckermannRateControl::generateSteeringSetpoint()
 
 	if (fabsf(_estimated_speed_body_x) > FLT_EPSILON) {
 		// Set up feasible yaw rate setpoint
-		float max_possible_yaw_rate = _param_ra_wheel_base.get() > FLT_EPSILON ? fabsf(_estimated_speed_body_x) * tanf(
-						      _param_ra_max_str_ang.get()) / _param_ra_wheel_base.get() :
-					      _max_yaw_rate; // Maximum possible yaw rate at current velocity
+		float max_possible_yaw_rate = fabsf(_estimated_speed_body_x) * tanf(_param_ra_max_str_ang.get()) /
+					      _param_ra_wheel_base.get(); // Maximum possible yaw rate at current velocity
 		float yaw_rate_limit = math::min(max_possible_yaw_rate, _max_yaw_rate);
 		float constrained_yaw_rate = math::constrain(_rover_rate_setpoint.yaw_rate_setpoint, -yaw_rate_limit, yaw_rate_limit);
 
@@ -159,8 +155,7 @@ void AckermannRateControl::generateSteeringSetpoint()
 		}
 
 		// Feed forward
-		steering_setpoint = fabsf(_estimated_speed_body_x) > FLT_EPSILON ? atanf(_yaw_rate_setpoint.getState() *
-				    _param_ra_wheel_base.get() / _estimated_speed_body_x) : 0.f;
+		steering_setpoint = atanf(_yaw_rate_setpoint.getState() * _param_ra_wheel_base.get() / _estimated_speed_body_x);
 
 		// Feedback (Only when driving forwards because backwards driving is NMP and can introduce instability)
 		if (_estimated_speed_body_x > FLT_EPSILON) {
@@ -177,4 +172,52 @@ void AckermannRateControl::generateSteeringSetpoint()
 	rover_steering_setpoint.normalized_steering_angle = math::interpolate<float>(steering_setpoint,
 			-_param_ra_max_str_ang.get(), _param_ra_max_str_ang.get(), -1.f, 1.f); // Normalize steering setpoint
 	_rover_steering_setpoint_pub.publish(rover_steering_setpoint);
+}
+
+bool AckermannRateControl::runSanityChecks()
+{
+	bool ret = true;
+
+	if (_param_ro_max_thr_speed.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_max_thr_speed"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RO_MAX_THR_SPEED", _param_ro_max_thr_speed.get());
+		}
+
+	}
+
+	if (_param_ra_wheel_base.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_wheel_base"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RA_WHEEL_BASE", _param_ra_wheel_base.get());
+		}
+
+	}
+
+	if (_param_ra_max_str_ang.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_max_str_ang"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RA_MAX_STR_ANG", _param_ra_max_str_ang.get());
+		}
+
+	}
+
+	if (_param_ro_yaw_rate_limit.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_yaw_rate_lim"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RO_YAW_RATE_LIM", _param_ro_yaw_rate_limit.get());
+		}
+
+	}
+
+	_sanity_check = ret;
+	return ret;
 }

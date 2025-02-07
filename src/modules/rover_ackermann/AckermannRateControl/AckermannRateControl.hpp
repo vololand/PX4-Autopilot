@@ -35,6 +35,7 @@
 
 // PX4 includes
 #include <px4_platform_common/module_params.h>
+#include <px4_platform_common/events.h>
 
 // Libraries
 #include <lib/rover_control/RoverControl.hpp>
@@ -90,6 +91,12 @@ private:
 	 */
 	void generateSteeringSetpoint();
 
+	/**
+	 * @brief Check if the necessary parameters are set.
+	 * @return True if all checks pass.
+	 */
+	bool runSanityChecks();
+
 	// uORB subscriptions
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
@@ -112,6 +119,7 @@ private:
 	float _vehicle_yaw_rate{0.f};
 	hrt_abstime _timestamp{0};
 	float _dt{0.f}; // Time since last update [s].
+	bool _sanity_check{true};
 
 	// Controllers
 	PID _pid_yaw_rate;

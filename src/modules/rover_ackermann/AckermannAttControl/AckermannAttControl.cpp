@@ -75,13 +75,13 @@ void AckermannAttControl::updateAttControl()
 		_vehicle_yaw = matrix::Eulerf(vehicle_attitude_quaternion).psi();
 	}
 
-	if (_vehicle_control_mode.flag_control_attitude_enabled && _vehicle_control_mode.flag_armed) {
+	if (_vehicle_control_mode.flag_control_attitude_enabled && _vehicle_control_mode.flag_armed && runSanityChecks()) {
 		// Estimate forward speed based on throttle
 		if (_actuator_motors_sub.updated()) {
 			actuator_motors_s actuator_motors;
 			_actuator_motors_sub.copy(&actuator_motors);
-			_estimated_speed_body_x = _param_ro_max_thr_speed.get() > FLT_EPSILON ? math::interpolate<float>
-						  (actuator_motors.control[0], -1.f, 1.f, -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get()) : 0.f;
+			_estimated_speed_body_x = math::interpolate<float> (actuator_motors.control[0], -1.f, 1.f,
+						  -_param_ro_max_thr_speed.get(), _param_ro_max_thr_speed.get());
 		}
 
 		if (_vehicle_control_mode.flag_control_manual_enabled) {
@@ -111,10 +111,8 @@ void AckermannAttControl::generateAttitudeSetpoint()
 
 	if (stab_mode_enabled && _manual_control_setpoint_sub.updated()) { // Stab Mode
 		manual_control_setpoint_s manual_control_setpoint{};
-		bool necessary_parameters_set = _max_yaw_rate > FLT_EPSILON
-						&&  _param_ro_max_thr_speed.get() > FLT_EPSILON;
 
-		if (_manual_control_setpoint_sub.update(&manual_control_setpoint) && necessary_parameters_set) {
+		if (_manual_control_setpoint_sub.update(&manual_control_setpoint)) {
 
 			rover_throttle_setpoint_s rover_throttle_setpoint{};
 			rover_throttle_setpoint.timestamp = _timestamp;
@@ -169,18 +167,9 @@ void AckermannAttControl::generateRateSetpoint()
 	}
 
 	// Calculate yaw rate limit for slew rate
-	float yaw_slew_rate{0.f};
-
-	if (_param_ra_wheel_base.get() > FLT_EPSILON && _param_ra_max_str_ang.get() > FLT_EPSILON
-	    && PX4_ISFINITE(_estimated_speed_body_x)) {
-		float max_possible_yaw_rate = _param_ra_wheel_base.get() > FLT_EPSILON ? fabsf(_estimated_speed_body_x) * tanf(
-						      _param_ra_max_str_ang.get()) / _param_ra_wheel_base.get() :
-					      _max_yaw_rate; // Maximum possible yaw rate at current velocity
-		yaw_slew_rate = math::min(max_possible_yaw_rate, _max_yaw_rate);
-
-	} else {
-		yaw_slew_rate = _max_yaw_rate;
-	}
+	float max_possible_yaw_rate = fabsf(_estimated_speed_body_x) * tanf(_param_ra_max_str_ang.get()) /
+				      _param_ra_wheel_base.get(); // Maximum possible yaw rate at current velocity
+	float yaw_slew_rate = math::min(max_possible_yaw_rate, _max_yaw_rate);
 
 	float yaw_rate_setpoint = RoverControl::attitudeControl(_adjusted_yaw_setpoint, _pid_yaw, yaw_slew_rate,
 				  _vehicle_yaw, _rover_attitude_setpoint.yaw_setpoint, _dt);
@@ -190,4 +179,52 @@ void AckermannAttControl::generateRateSetpoint()
 	rover_rate_setpoint.timestamp = _timestamp;
 	rover_rate_setpoint.yaw_rate_setpoint = math::constrain(yaw_rate_setpoint, -_max_yaw_rate, _max_yaw_rate);
 	_rover_rate_setpoint_pub.publish(rover_rate_setpoint);
+}
+
+bool AckermannAttControl::runSanityChecks()
+{
+	bool ret = true;
+
+	if (_param_ro_max_thr_speed.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_att_control_conf_invalid_max_thr_speed"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RO_MAX_THR_SPEED", _param_ro_max_thr_speed.get());
+		}
+
+	}
+
+	if (_param_ra_wheel_base.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_att_control_conf_invalid_wheel_base"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RA_WHEEL_BASE", _param_ra_wheel_base.get());
+		}
+
+	}
+
+	if (_param_ra_max_str_ang.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_att_control_conf_invalid_max_str_ang"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RA_MAX_STR_ANG", _param_ra_max_str_ang.get());
+		}
+
+	}
+
+	if (_param_ro_yaw_rate_limit.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_att_control_conf_invalid_yaw_rate_lim"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RO_YAW_RATE_LIM", _param_ro_yaw_rate_limit.get());
+		}
+
+	}
+
+	_sanity_check = ret;
+	return ret;
 }

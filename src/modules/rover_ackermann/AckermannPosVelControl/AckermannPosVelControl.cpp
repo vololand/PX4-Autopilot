@@ -71,7 +71,7 @@ void AckermannPosVelControl::updatePosVelControl()
 	updateSubscriptions();
 
 	if ((_vehicle_control_mode.flag_control_position_enabled || _vehicle_control_mode.flag_control_velocity_enabled)
-	    && _vehicle_control_mode.flag_armed) {
+	    && _vehicle_control_mode.flag_armed && runSanityChecks()) {
 		generateAttitudeSetpoint();
 		rover_throttle_setpoint_s rover_throttle_setpoint{};
 		rover_throttle_setpoint.timestamp = _timestamp;
@@ -164,9 +164,8 @@ void AckermannPosVelControl::generateAttitudeSetpoint()
 void AckermannPosVelControl::manualPositionMode()
 {
 	manual_control_setpoint_s manual_control_setpoint{};
-	const bool necessary_parameters_set = _max_yaw_rate > FLT_EPSILON &&  _param_ro_max_thr_speed.get() > FLT_EPSILON;
 
-	if (_manual_control_setpoint_sub.update(&manual_control_setpoint) && necessary_parameters_set) {
+	if (_manual_control_setpoint_sub.update(&manual_control_setpoint)) {
 		_speed_body_x_setpoint = math::interpolate<float>(manual_control_setpoint.throttle,
 					 -1.f, 1.f, -_param_ro_speed_limit.get(), _param_ro_speed_limit.get());
 		const float yaw_rate_setpoint = math::interpolate<float>(math::deadzone(manual_control_setpoint.roll,
@@ -298,8 +297,7 @@ void AckermannPosVelControl::updateWaypointsAndAcceptanceRadius()
 	_position_setpoint_triplet_sub.copy(&position_setpoint_triplet);
 
 	RoverControl::globalToLocalSetpointTriplet(_curr_wp_ned, _prev_wp_ned, _next_wp_ned, position_setpoint_triplet,
-			_curr_pos_ned,
-			_home_position, _global_ned_proj_ref);
+			_curr_pos_ned, _home_position, _global_ned_proj_ref);
 
 	_prev_waypoint_transition_angle = _waypoint_transition_angle;
 	_waypoint_transition_angle = RoverControl::calcWaypointTransitionAngle(_prev_wp_ned, _curr_wp_ned, _next_wp_ned);
@@ -387,4 +385,52 @@ float AckermannPosVelControl::calcSpeedSetpoint(const float cruising_speed, cons
 		return cruising_speed;
 	}
 
+}
+
+bool AckermannPosVelControl::runSanityChecks()
+{
+	bool ret = true;
+
+	if (_param_ro_max_thr_speed.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_posVel_control_conf_invalid_max_thr_speed"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RO_MAX_THR_SPEED", _param_ro_max_thr_speed.get());
+		}
+
+	}
+
+	if (_param_ra_wheel_base.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_posVel_control_conf_invalid_wheel_base"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RA_WHEEL_BASE", _param_ra_wheel_base.get());
+		}
+
+	}
+
+	if (_param_ra_max_str_ang.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_posVel_control_conf_invalid_max_str_ang"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RA_MAX_STR_ANG", _param_ra_max_str_ang.get());
+		}
+
+	}
+
+	if (_param_ro_speed_limit.get() < FLT_EPSILON) {
+		ret = false;
+
+		if (_sanity_check) {
+			events::send<float>(events::ID("ackermann_posVel_control_conf_invalid_speed_lim"), events::Log::Error,
+					    "Invalid configuration of necessary parameter RO_SPEED_LIM", _param_ro_yaw_rate_limit.get());
+		}
+
+	}
+
+	_sanity_check = ret;
+	return ret;
 }

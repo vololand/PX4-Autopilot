@@ -35,6 +35,9 @@
 
 // PX4 includes
 #include <px4_platform_common/module_params.h>
+#include <px4_platform_common/events.h>
+
+// Library includes
 #include <lib/rover_control/RoverControl.hpp>
 #include <lib/pid/PID.hpp>
 #include <matrix/matrix/math.hpp>
@@ -167,6 +170,12 @@ private:
 				float distance_to_curr_wp, float acc_rad, float prev_acc_rad, float max_decel, float max_jerk, int nav_state,
 				float waypoint_transition_angle, float prev_waypoint_transition_angle, float max_speed);
 
+	/**
+	 * @brief Check if the necessary parameters are set.
+	 * @return True if all checks pass.
+	 */
+	bool runSanityChecks();
+
 	// uORB subscriptions
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
@@ -205,6 +214,7 @@ private:
 	int _nav_state{0};
 	bool _course_control{false}; // Indicates if the rover is doing course control in manual position mode.
 	bool _mission_finished{false};
+	bool _sanity_check{true};
 
 	// Waypoint variables
 	Vector2d _home_position{};

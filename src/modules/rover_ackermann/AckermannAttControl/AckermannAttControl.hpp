@@ -35,6 +35,9 @@
 
 // PX4 includes
 #include <px4_platform_common/module_params.h>
+#include <px4_platform_common/events.h>
+
+// Library includes
 #include <lib/rover_control/RoverControl.hpp>
 #include <lib/pid/PID.hpp>
 #include <lib/slew_rate/SlewRateYaw.hpp>
@@ -88,6 +91,12 @@ private:
 	 */
 	void generateRateSetpoint();
 
+	/**
+	 * @brief Check if the necessary parameters are set.
+	 * @return True if all checks pass.
+	 */
+	bool runSanityChecks();
+
 	// uORB subscriptions
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
@@ -113,8 +122,9 @@ private:
 	float _max_yaw_rate{0.f};
 	float _estimated_speed_body_x{0.f}; /*Vehicle speed estimated by interpolating [actuatorMotorSetpoint,  _estimated_speed_body_x]
 					       between [0, 0] and [1, _param_ro_max_thr_speed].*/
-	bool _stab_yaw_ctl{false}; // Indicates if rover is doing yaw control in stab mode
 	float _stab_yaw_setpoint{0.f}; // Yaw setpoint if rover is doing yaw control in stab mode
+	bool _stab_yaw_ctl{false}; // Indicates if rover is doing yaw control in stab mode
+	bool _sanity_check{true};
 
 	// Controllers
 	PID _pid_yaw;
@@ -122,11 +132,11 @@ private:
 
 	// Parameters
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RO_MAX_THR_SPEED>)  _param_ro_max_thr_speed,
-		(ParamFloat<px4::params::RA_WHEEL_BASE>)     _param_ra_wheel_base,
-		(ParamFloat<px4::params::RA_MAX_STR_ANG>)    _param_ra_max_str_ang,
-		(ParamFloat<px4::params::RO_YAW_RATE_LIM>) _param_ro_yaw_rate_limit,
-		(ParamFloat<px4::params::RO_YAW_P>)          _param_ro_yaw_p,
-		(ParamFloat<px4::params::RO_YAW_STICK_DZ>)   _param_ro_yaw_stick_dz
+		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed,
+		(ParamFloat<px4::params::RA_WHEEL_BASE>)    _param_ra_wheel_base,
+		(ParamFloat<px4::params::RA_MAX_STR_ANG>)   _param_ra_max_str_ang,
+		(ParamFloat<px4::params::RO_YAW_RATE_LIM>)  _param_ro_yaw_rate_limit,
+		(ParamFloat<px4::params::RO_YAW_P>)         _param_ro_yaw_p,
+		(ParamFloat<px4::params::RO_YAW_STICK_DZ>)  _param_ro_yaw_stick_dz
 	)
 };
