@@ -18,7 +18,7 @@ param set-default RA_WHEEL_BASE 0.321
 param set-default RA_ACC_RAD_GAIN 2
 param set-default RA_ACC_RAD_MAX 3
 param set-default RA_MAX_STR_ANG 0.5236
-param set-default RA_MAX_STR_RATE 360
+param set-default RA_STR_RATE_LIM 360
 
 # Rover Control Parameters
 param set-default RO_ACCEL_LIM 3

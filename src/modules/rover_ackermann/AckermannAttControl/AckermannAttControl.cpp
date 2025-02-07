@@ -100,15 +100,14 @@ void AckermannAttControl::updateAttControl()
 	rover_attitude_status.timestamp = _timestamp;
 	rover_attitude_status.measured_yaw = _vehicle_yaw;
 	rover_attitude_status.adjusted_yaw_setpoint = _adjusted_yaw_setpoint.getState();
-	rover_attitude_status.pid_yaw_integral = _pid_yaw.getIntegral();
 	_rover_attitude_status_pub.publish(rover_attitude_status);
 
 }
 
 void AckermannAttControl::generateAttitudeSetpoint()
 {
-	bool stab_mode_enabled = _vehicle_control_mode.flag_control_manual_enabled
-				 && !_vehicle_control_mode.flag_control_position_enabled && _vehicle_control_mode.flag_control_attitude_enabled;
+	const bool stab_mode_enabled = _vehicle_control_mode.flag_control_manual_enabled
+				       && !_vehicle_control_mode.flag_control_position_enabled && _vehicle_control_mode.flag_control_attitude_enabled;
 
 	if (stab_mode_enabled && _manual_control_setpoint_sub.updated()) { // Stab Mode
 		manual_control_setpoint_s manual_control_setpoint{};

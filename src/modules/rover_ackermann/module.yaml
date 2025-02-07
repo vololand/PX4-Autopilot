@@ -26,9 +26,9 @@ parameters:
         decimal: 2
         default: 0
 
-      RA_MAX_STR_RATE:
+      RA_STR_RATE_LIM:
         description:
-          short: Maximum steering rate
+          short: Steering rate limit
           long: Set to -1 to disable.
         type: float
         unit: deg/s

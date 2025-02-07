@@ -54,8 +54,8 @@ void RoverAckermann::updateParams()
 {
 	ModuleParams::updateParams();
 
-	if (_param_ra_max_str_rate.get() > FLT_EPSILON && _param_ra_max_str_ang.get() > FLT_EPSILON) {
-		_servo_setpoint.setSlewRate((M_DEG_TO_RAD_F * _param_ra_max_str_rate.get()) / _param_ra_max_str_ang.get());
+	if (_param_ra_str_rate_limit.get() > FLT_EPSILON && _param_ra_max_str_ang.get() > FLT_EPSILON) {
+		_servo_setpoint.setSlewRate((M_DEG_TO_RAD_F * _param_ra_str_rate_limit.get()) / _param_ra_max_str_ang.get());
 	}
 
 	if (_param_ro_accel_limit.get() > FLT_EPSILON && _param_ro_max_thr_speed.get() > FLT_EPSILON) {
@@ -143,7 +143,7 @@ void RoverAckermann::generateActuatorSetpoint()
 		_current_servo_setpoint = actuator_servos.control[0];
 	}
 
-	if (_param_ra_max_str_rate.get() > FLT_EPSILON
+	if (_param_ra_str_rate_limit.get() > FLT_EPSILON
 	    && _param_ra_max_str_ang.get() > FLT_EPSILON) { // Apply slew rate if configured
 		if (fabsf(_servo_setpoint.getState() - _current_servo_setpoint) > fabsf(
 			    _rover_steering_setpoint.normalized_steering_angle -

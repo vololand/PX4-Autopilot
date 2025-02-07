@@ -169,8 +169,8 @@ void AckermannPosVelControl::manualPositionMode()
 	if (_manual_control_setpoint_sub.update(&manual_control_setpoint) && necessary_parameters_set) {
 		_speed_body_x_setpoint = math::interpolate<float>(manual_control_setpoint.throttle,
 					 -1.f, 1.f, -_param_ro_speed_limit.get(), _param_ro_speed_limit.get());
-		float yaw_rate_setpoint = math::interpolate<float>(math::deadzone(manual_control_setpoint.roll,
-					  _param_ro_yaw_stick_dz.get()), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
+		const float yaw_rate_setpoint = math::interpolate<float>(math::deadzone(manual_control_setpoint.roll,
+						_param_ro_yaw_stick_dz.get()), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
 
 		if (fabsf(yaw_rate_setpoint) > FLT_EPSILON
 		    || fabsf(_speed_body_x_setpoint) < FLT_EPSILON) { // Closed loop yaw rate control
