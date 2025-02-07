@@ -214,7 +214,7 @@ private:
 	int _nav_state{0};
 	bool _course_control{false}; // Indicates if the rover is doing course control in manual position mode.
 	bool _mission_finished{false};
-	bool _sanity_check{true};
+	bool _prev_param_check_passed{true};
 
 	// Waypoint variables
 	Vector2d _home_position{};

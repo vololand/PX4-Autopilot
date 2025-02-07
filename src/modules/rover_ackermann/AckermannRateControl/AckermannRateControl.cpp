@@ -181,7 +181,7 @@ bool AckermannRateControl::runSanityChecks()
 	if (_param_ro_max_thr_speed.get() < FLT_EPSILON) {
 		ret = false;
 
-		if (_sanity_check) {
+		if (_prev_param_check_passed) {
 			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_max_thr_speed"), events::Log::Error,
 					    "Invalid configuration of necessary parameter RO_MAX_THR_SPEED", _param_ro_max_thr_speed.get());
 		}
@@ -191,7 +191,7 @@ bool AckermannRateControl::runSanityChecks()
 	if (_param_ra_wheel_base.get() < FLT_EPSILON) {
 		ret = false;
 
-		if (_sanity_check) {
+		if (_prev_param_check_passed) {
 			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_wheel_base"), events::Log::Error,
 					    "Invalid configuration of necessary parameter RA_WHEEL_BASE", _param_ra_wheel_base.get());
 		}
@@ -201,7 +201,7 @@ bool AckermannRateControl::runSanityChecks()
 	if (_param_ra_max_str_ang.get() < FLT_EPSILON) {
 		ret = false;
 
-		if (_sanity_check) {
+		if (_prev_param_check_passed) {
 			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_max_str_ang"), events::Log::Error,
 					    "Invalid configuration of necessary parameter RA_MAX_STR_ANG", _param_ra_max_str_ang.get());
 		}
@@ -211,13 +211,13 @@ bool AckermannRateControl::runSanityChecks()
 	if (_param_ro_yaw_rate_limit.get() < FLT_EPSILON) {
 		ret = false;
 
-		if (_sanity_check) {
+		if (_prev_param_check_passed) {
 			events::send<float>(events::ID("ackermann_rate_control_conf_invalid_yaw_rate_lim"), events::Log::Error,
 					    "Invalid configuration of necessary parameter RO_YAW_RATE_LIM", _param_ro_yaw_rate_limit.get());
 		}
 
 	}
 
-	_sanity_check = ret;
+	_prev_param_check_passed = ret;
 	return ret;
 }

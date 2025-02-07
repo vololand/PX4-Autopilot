@@ -35,7 +35,6 @@
 
 // PX4 includes
 #include <px4_platform_common/module_params.h>
-#include <px4_platform_common/events.h>
 
 // Library includes
 #include <lib/rover_control/RoverControl.hpp>
@@ -124,7 +123,6 @@ private:
 					       between [0, 0] and [1, _param_ro_max_thr_speed].*/
 	float _stab_yaw_setpoint{0.f}; // Yaw setpoint if rover is doing yaw control in stab mode
 	bool _stab_yaw_ctl{false}; // Indicates if rover is doing yaw control in stab mode
-	bool _sanity_check{true};
 
 	// Controllers
 	PID _pid_yaw;

@@ -119,7 +119,7 @@ private:
 	float _vehicle_yaw_rate{0.f};
 	hrt_abstime _timestamp{0};
 	float _dt{0.f}; // Time since last update [s].
-	bool _sanity_check{true};
+	bool _prev_param_check_passed{true};
 
 	// Controllers
 	PID _pid_yaw_rate;
