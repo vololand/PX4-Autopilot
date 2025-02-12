@@ -5,13 +5,13 @@
 board_adc start
 
 # SPI1
-rm3100 -s -b 1 start
+if ! icm20689 -s -b 1 -R 2 -q start
+then
+	adis16470 -s -b 1 -R 2 start
+fi
 
 # SPI2
-if ! icm20689 -s -b 2 -R 2 -q start
-then
-	adis16470 -s -b 2 -R 2 start
-fi
+rm3100 -s -b 2 start
 
 # SPI4
 bmi088 -s -b 4 -A -R 2 start
