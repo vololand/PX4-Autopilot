@@ -350,7 +350,7 @@ bootloaders_update: \
 	mro_ctrl-zero-h7-oem_bootloader \
 	mro_pixracerpro_bootloader \
 	narinfc_h7_bootloader \
-	naringps_f9p_canbootloader \
+#	naringps_f9p_canbootloader
 	px4_fmu-v6c_bootloader \
 	px4_fmu-v6u_bootloader \
 	px4_fmu-v6x_bootloader \
