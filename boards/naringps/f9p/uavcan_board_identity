@@ -7,7 +7,7 @@ add_definitions(
 )
 
 set(uavcanblid_hw_version_major 0)
-set(uavcanblid_hw_version_minor 82)
+set(uavcanblid_hw_version_minor 100)
 set(uavcanblid_name "\"org.naringps.f9p\"")
 
 add_definitions(
